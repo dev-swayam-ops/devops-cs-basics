@@ -171,58 +171,6 @@ devops-cs-basics/
 ✅ **Beginner-friendly**: No prerequisites beyond bash comfort  
 ✅ **Self-paced**: Learn when and where you want
 
-## � How to Get Most Out of This Course
-
-### Best Practice Workflow
-
-For **each module**, follow this 5-step process:
-
-1. **📖 Read the README**
-   - Understand key concepts
-   - Review the hands-on lab section
-   - Check common mistakes and troubleshooting
-
-2. **📋 Review the Cheatsheet**
-   - Get familiar with commands
-   - Understand command structure
-   - Mark important references
-
-3. **💪 Attempt the Exercises**
-   - Try **without** looking at solutions first
-   - Type commands yourself (not copy-paste)
-   - Understand each output
-   - Spend 30-45 minutes on exercises
-
-4. **✅ Check the Solutions**
-   - Compare your approach with solutions
-   - Learn alternative methods
-   - Understand the "why" behind commands
-   - Note any gaps in understanding
-
-5. **🎯 Validate Your Learning**
-   - Can you explain the concepts?
-   - Can you use the commands?
-   - Ready to move to next module?
-
-### Tips for Success
-
-**Do's** ✅
-- Type every command yourself
-- Understand the output
-- Experiment with variations
-- Take notes on cheatsheet
-- Return to earlier modules if needed
-- Ask questions (use GitHub discussions)
-- Practice daily, even if just 30 minutes
-
-**Don'ts** ❌
-- Skip the foundation modules
-- Rush through to advanced topics
-- Copy-paste commands without understanding
-- Skip hands-on labs
-- Memorize - understand instead
-- Work isolated - discuss with others
-
 ## 🎓 What You'll Be Able to Do
 
 After completing this curriculum, you will be able to:
@@ -265,36 +213,6 @@ After completing this curriculum, you will be able to:
 - Docker (for containerized labs)
 - VirtualBox (for isolated environments)
 - VS Code (for better editor experience)
-
-## ⏱️ Recommended Learning Schedule
-
-Pick a pace that fits your lifestyle and commit to it:
-
-### Aggressive Path (2 weeks)
-```
-Daily: 3-4 hours
-Complete 2-3 modules per week
-Weekend: Deep practice sessions
-Best for: Career changers, dedicated learners
-```
-
-### Standard Path (4 weeks)
-```
-Weekdays: 2 hours/day
-Weekends: 1-2 hours/day
-Complete 1-2 modules per week
-Best for: Working professionals
-```
-
-### Relaxed Path (8+ weeks)
-```
-Weekdays: 1 hour/day
-Weekends: 2 hours/day
-Complete 1 module per week
-Best for: Learning alongside full-time work
-```
-
-**Tip**: Consistency matters more than speed. Even 30 minutes daily is better than 8 hours once a week.
 
 ## ❓ Frequently Asked Questions
 
