@@ -18,27 +18,122 @@
 ## Key Concepts
 
 ### 1. Kernel vs User Mode
-- **Kernel Mode**: Full hardware access, privileged operations
-- **User Mode**: Restricted access, application code runs here
-- **System Calls**: Bridge between user and kernel (costly operation)
+
+The operating system separates execution into two distinct privilege levels to ensure system stability and security.
+
+**Kernel Mode**
+- The CPU executes with full access to all hardware resources (memory, disk, I/O devices)
+- Only the kernel runs in this mode - the core of the OS responsible for managing all system resources
+- Privileged operations like memory management, device control, and interrupt handling happen here
+- When CPU is in kernel mode, it can execute special privileged instructions
+- Example: Allocating memory pages, switching between processes, handling hardware interrupts
+
+**User Mode**
+- Regular applications and user processes run with restricted access to hardware
+- Cannot directly access hardware; must go through the kernel for privileged operations
+- Provides isolation - if one application crashes, it doesn't affect others or the kernel
+- Makes systems more secure and stable
+
+**System Calls**
+- The mechanism that bridges kernel and user mode
+- When a user application needs kernel service (like reading a file), it makes a "system call"
+- This triggers a mode switch from user to kernel mode - an expensive operation
+- Examples: `open()`, `read()`, `write()`, `fork()`, `exit()` are all system calls
+- The context switch overhead is why minimizing system calls is important for performance
 
 ### 2. Process Basics
-- **Process**: Running instance of a program with unique PID
-- **Process ID (PID)**: Unique identifier per process
-- **Parent Process (PPID)**: Parent's PID
-- **State**: Running, waiting, stopped, zombie
+
+A process is the fundamental unit of execution in an operating system. Each process is an independent running instance of a program.
+
+**Process (Process Image)**
+- The complete runtime environment of a program: code, data, stack, and resources
+- Each process has its own memory space - one process cannot directly access another's memory
+- Identified uniquely by its Process ID (PID)
+- Contains the program's executable code, current data values, and execution state
+
+**Process ID (PID)**
+- A unique positive integer assigned by the kernel to each process
+- Remains constant throughout the process's lifetime
+- When a process terminates, its PID can be reassigned to a new process
+- Used by the OS to track and manage processes
+- Example: Process 1234, Process 5678, etc.
+
+**Parent Process (PPID)**
+- Every process (except the first) is created by another process called its parent
+- The parent's PID is stored as PPID in the child process
+- Processes form a tree structure with `init` (PID 1) at the root
+- Useful for understanding process relationships and cleanup (when parent dies, children are orphaned)
+
+**Process State**
+- **Running (R)**: Currently executing on the CPU
+- **Sleeping/Waiting (S)**: Waiting for an event (I/O, signal, etc.) - interruptible
+- **Uninterruptible Sleep (D)**: Waiting for I/O that cannot be interrupted
+- **Zombie (Z)**: Terminated but parent hasn't read its exit status yet
+- **Stopped (T)**: Suspended via signal, waiting to be resumed
+- Processes transition between states throughout their lifetime based on events and scheduling
 
 ### 3. System Resources
-- **CPU**: Processor cores executing instructions
-- **Memory**: RAM for storing data and code
-- **I/O**: Disk, network, terminals
-- **Scheduling**: Fair allocation of CPU time
+
+The OS manages several critical hardware resources that all processes need to share fairly.
+
+**CPU (Processor)**
+- The hardware component that executes instructions from processes
+- Modern systems have multiple CPU cores allowing true parallel execution
+- Limited resource: only so much computation can happen simultaneously
+- The scheduler decides which process gets CPU time and for how long
+- CPU-bound tasks (calculations) compete heavily for this resource
+
+**Memory (RAM)**
+- Volatile storage where the OS and all running processes keep code and data
+- Limited resource: you can't run more processes than memory allows
+- Each process gets its own address space - kernel protects processes from accessing each other's memory
+- Divided into pages (typically 4KB) by the memory management system
+- RAM is much faster than disk, which is why efficient memory use matters
+
+**I/O (Input/Output)**
+- Includes disk storage, network cards, USB devices, terminals, printers
+- Much slower than CPU and memory - a key bottleneck
+- Processes often block (wait) while I/O completes - this is normal
+- The kernel manages I/O to prevent conflicts (two processes can't write to same file simultaneously)
+- Examples: Reading from disk, sending data over network, keyboard input
+
+**Scheduling**
+- The algorithm that decides which process runs on the CPU at any moment
+- Fair allocation: each process should get a reasonable share of CPU time
+- Context switching: the CPU rapidly switches between processes (hundreds of times per second)
+- Preemption: the kernel can forcibly pause a process to let another run
+- Without scheduling, one process could monopolize the CPU and freeze all others
 
 ### 4. File System
-- Hierarchical structure starting from root (/)
-- Inodes store file metadata
-- Permissions: read (4), write (2), execute (1)
-- Ownership: user, group, others
+
+The file system is how the OS organizes and provides access to persistent data on disk.
+
+**Hierarchical Structure**
+- Files and directories organized in a tree starting from root directory `/`
+- Everything in Linux is under `/` - there's no separate drive letters like Windows
+- Typical structure: `/home`, `/var`, `/etc`, `/bin`, `/usr`, etc.
+- Absolute paths start with `/`; relative paths are relative to current directory
+- Allows logical organization of thousands of files
+
+**Inodes**
+- The data structure that stores metadata about each file (not the content)
+- Contains: file size, owner, permissions, timestamps (created, modified, accessed), file type
+- Each file is identified by an inode number on its filesystem
+- The filename is just a human-readable reference to the inode number
+- Commands like `ls -i` show inode numbers
+
+**Permissions**
+- Three levels of permission: read (r=4), write (w=2), execute (x=1)
+- Applied to three categories: owner (user), group, others
+- Combined as three digits: owner permissions + group permissions + others permissions
+- Example: `rwxr-xr-x` = 755 = owner can read/write/execute, group and others can only read/execute
+- Execute permission on a directory means you can enter it; on a file means you can run it
+
+**Ownership**
+- Every file has an owner (user) and group
+- Only the owner or root can change permissions
+- Groups allow multiple users to share access to files
+- Example: A file owned by `alice:developers` means user alice owns it, developers group has group permissions
 
 ## Hands-on Lab: OS Exploration
 
