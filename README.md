@@ -93,38 +93,6 @@ For each module, follow this order:
 - **Understand the why**, not just the what
 - **Review solutions** to learn different approaches
 
-## 📖 Learning Paths
-
-### Path 1: Complete Mastery (All 16 Modules)
-```
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16
-```
-**Time**: 50-70 hours | **Best for**: Comprehensive understanding, senior roles
-
-### Path 2: DevOps Focus (Modules 01-15, skip 16 initially)
-```
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15
-```
-**Time**: 45-60 hours | **Best for**: DevOps engineers building expertise
-
-### Path 3: Systems Foundation (Modules 01-10)
-```
-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10
-```
-**Time**: 30-40 hours | **Best for**: Understanding system fundamentals
-
-### Path 4: Interview Prep (Module 16 + Review)
-```
-Start with 16 → Identify weak areas → Deep-dive specific modules
-```
-**Time**: 20-30 hours | **Best for**: Job candidates preparing for interviews
-
-### Path 5: Self-Paced Exploration
-```
-Pick modules by interest: Security (14), Databases (12), Networking (06-07)
-```
-**Time**: Varies | **Best for**: Focused skill building
-
 ## � Repository Structure
 
 ```
@@ -358,70 +326,6 @@ A: Yes! Completely free and open-source.
 **Q: How long before I can get a job?**  
 A: That depends on your background. This gives you the **foundation**. Real experience comes from applying these concepts to actual systems.
 
-## 🤝 Community & Support
-
-### Have Questions?
-- **GitHub Issues**: Report problems or ask questions
-- **Discussions**: Connect with other learners
-- **Reddit**: r/devops, r/linux communities
-- **Discord**: DevOps community servers
-
-### Want to Contribute?
-- Found a typo? Submit a fix
-- Have a better explanation? Share it
-- Created new exercises? Contribute them
-- Know additional resources? Add them
-
-All contributions help others learn better!
-
-## � Additional Learning Resources
-
-### Textbooks & Books
-- **Operating Systems: Three Easy Pieces** - Free, excellent OS fundamentals
-- **Designing Data-Intensive Applications** - Best for distributed systems
-- **The Linux Programming Interface** - Comprehensive systems reference
-- **Systems Performance** - Deep performance optimization
-- **Computer Networks** (Kurose & Ross) - Networking fundamentals
-
-### Official Documentation
-- [Linux kernel docs](https://www.kernel.org/doc/)
-- [GNU/Linux man pages](https://man7.org/linux/man-pages/)
-- [Linux Foundation](https://www.linuxfoundation.org/)
-
-### Online Communities
-- **r/devops** - Active DevOps community
-- **r/linux** - General Linux topics
-- **r/sysadmin** - System administration
-- **CNCF** - Cloud native ecosystem
-- **Linux Academy** - Additional training resources
-
-### Practice Platforms
-- **LeetCode** - Algorithm and system design practice
-- **HackerRank** - Coding and systems challenges
-- **InterviewBit** - Interview-focused problems
-- **GitHub** - Real open-source projects to contribute to
-
-## � Curriculum Statistics
-
-- **Total Modules**: 16 complete, production-ready
-- **Total Files**: 64 (4 files per module)
-- **Total Exercises**: 160+ (10 per module, easy to medium)
-- **Total Solutions**: 160+ (fully explained)
-- **Total Cheatsheet Commands**: 1000+ (referenced with examples)
-- **Estimated Hours**: 50-70 hours (depending on path)
-- **Cost**: FREE ✨
-
-## ✅ Quality Assurance
-
-Each module includes:
-- ✓ Practical hands-on labs with real output
-- ✓ Progressive exercises (easy → medium)
-- ✓ Complete solutions with explanations
-- ✓ Command reference tables
-- ✓ Troubleshooting guides
-- ✓ Real-world DevOps context
-- ✓ Beginner-friendly language
-
 ---
 
 ## 🚀 Ready to Start Your Learning Journey?
@@ -430,13 +334,6 @@ Each module includes:
 1. **Complete Curriculum**: [Start with Module 01](01-os-fundamentals/README.md)
 2. **Need Quick Help?**: Jump to [Module 16 Cheatsheet](16-interview-notes-and-cheatsheets/cheatsheet.md)
 3. **Specific Topic**: Use the curriculum table above to find your module
-
-### Quick Action:
-```bash
-# Open the first module
-cd 01-os-fundamentals
-cat README.md
-```
 
 ---
 
