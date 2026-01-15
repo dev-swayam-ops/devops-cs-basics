@@ -1,100 +1,180 @@
-# 13 - Caching and Queues: Cheatsheet
+# 13 - Caching and Queues Cheatsheet
 
-## Caching Strategies
+## Redis Connection Commands
 
-| Strategy | When to Use | Example |
-|----------|------------|---------|
-| **Write-Through** | Need consistency | Banking |
-| **Write-Behind** | High performance needed | Logging |
-| **Lazy Load** | Unpredictable access | Web cache |
-| **TTL-Based** | Frequently changing data | Sessions, config |
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `redis-cli` | Connect to Redis | Default localhost:6379 |
+| `redis-cli -h host -p port` | Remote connection | Custom server |
+| `redis-cli PING` | Test connection | Returns PONG |
+| `redis-cli SHUTDOWN` | Stop server | Graceful shutdown |
+| `redis-server` | Start server | Foreground or background |
 
-## Redis Commands
+## Key-Value Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `SET key value` | Store string | `SET name "Alice"` |
+| `GET key` | Retrieve value | Returns value or nil |
+| `DEL key` | Delete key | Removes from cache |
+| `EXISTS key` | Check if exists | Returns 1 or 0 |
+| `INCR key` | Increment number | Atomic +1 |
+| `DECR key` | Decrement number | Atomic -1 |
+| `APPEND key val` | Append string | Concatenate |
+| `STRLEN key` | String length | Returns length |
+
+## Expiration Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `EXPIRE key seconds` | Set TTL | `EXPIRE key 60` |
+| `TTL key` | Time remaining | Seconds left |
+| `PTTL key` | TTL milliseconds | More precise |
+| `PERSIST key` | Remove expiration | Keep forever |
+| `EXPIREAT key timestamp` | Expire at time | Unix timestamp |
+| `SET key value EX seconds` | Set with TTL | Combined operation |
+
+## List/Queue Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `LPUSH list item` | Push left (head) | Add to front |
+| `RPUSH list item` | Push right (tail) | Add to back |
+| `LPOP list` | Pop left | Remove from front |
+| `RPOP list` | Pop right | Remove from back |
+| `LLEN list` | List length | Item count |
+| `LRANGE list start stop` | View items | Range of items |
+| `BRPOP list timeout` | Blocking pop | Wait for item |
+| `RPOPLPUSH src dst` | Atomic move | Between lists |
+
+## Pub/Sub Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `PUBLISH topic message` | Send message | Broadcast |
+| `SUBSCRIBE topic` | Listen to topic | Receive messages |
+| `UNSUBSCRIBE topic` | Stop listening | Disconnect |
+| `PSUBSCRIBE pattern` | Pattern subscribe | Wildcard topics |
+| `PUBSUB CHANNELS` | Active channels | Show topics |
+
+## Database Management
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `FLUSHDB` | Clear current DB | Remove all keys |
+| `FLUSHALL` | Clear all DBs | Dangerous! |
+| `DBSIZE` | Key count | How many keys |
+| `SELECT db` | Switch database | 0-15 typically |
+| `SAVE` | Write to disk | Synchronous |
+| `BGSAVE` | Background save | Async write |
+
+## Key Management
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `KEYS pattern` | Find keys | Glob pattern |
+| `SCAN cursor` | Iterate keys | Non-blocking |
+| `TYPE key` | Get data type | string, list, set |
+| `RANDOMKEY` | Random key | For testing |
+| `RENAME key newkey` | Rename | Change key name |
+| `RENAMENX key new` | Safe rename | Fail if exists |
+
+## Server Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `INFO` | Server info | Stats and config |
+| `CONFIG GET param` | Get setting | Check parameter |
+| `CONFIG SET param val` | Change setting | Temporary change |
+| `MONITOR` | Watch commands | Live command stream |
+| `SLOWLOG GET` | Slow queries | Performance issues |
+
+## Cache Patterns
+
+| Pattern | Use Case | Implementation |
+|---------|----------|-----------------|
+| Cache-aside | General | Check cache, fallback to DB |
+| Write-through | Consistency | Write to cache and DB |
+| Write-behind | Performance | Async persist |
+| Refresh-ahead | Predictable | Preload before expiry |
+
+## Eviction Policies
+
+| Policy | Behavior | Best for |
+|--------|----------|----------|
+| noeviction | No removal (error) | Strict limit |
+| allkeys-lru | Remove any LRU | General cache |
+| volatile-lru | Remove expiring LRU | Session store |
+| allkeys-lfu | Remove any LFU | Frequency-based |
+| random | Remove random | Simple |
+
+## Performance Optimization
+
+| Technique | Benefit | Cost |
+|-----------|---------|------|
+| Compression | Smaller memory | CPU overhead |
+| Batching | Fewer roundtrips | Complexity |
+| Pipelining | Parallel requests | Memory (buffering) |
+| Persistence (RDB) | Durability | Disk writes |
+
+## Monitoring Commands
 
 ```bash
-# String
-SET key value
-GET key
-INCR counter
+# Memory usage
+redis-cli INFO memory
 
-# List
-LPUSH list value        # Add to left
-RPOP list               # Remove from right
-LLEN list               # List length
+# Connected clients
+redis-cli INFO clients
 
-# Hash
-HSET key field value
-HGET key field
-HGETALL key
+# Operations per second
+redis-cli INFO stats
 
-# Set
-SADD set member
-SMEMBERS set
+# Keyspace stats
+redis-cli INFO keyspace
 
-# Sorted Set
-ZADD zset 1 member
-ZRANGE zset 0 -1
+# Monitor live
+redis-cli MONITOR
 
-# Expiration
-EXPIRE key 3600         # Expire in 1 hour
-TTL key                 # Check TTL
+# Slowlog
+redis-cli SLOWLOG GET 10
 ```
 
-## Queue Patterns
-
-```
-FIFO Queue:
-- In: Enqueue message
-- Out: Dequeue first-in
-- Use: Order processing
-
-Priority Queue:
-- In: Enqueue with priority
-- Out: Highest priority first
-- Use: Urgent tasks
-
-Pub/Sub:
-- Publish: Send to topic
-- Subscribe: Receive from topic
-- Use: Broadcast events
-```
-
-## Memcached vs Redis
-
-```
-Memcached:
-- Simple key-value
-- Fast, distributed
-- No persistence
-
-Redis:
-- Data structures
-- Persistence options
-- Built-in replication
-- Pub/Sub
-```
-
-## Cache Invalidation
-
-```
-Strategies:
-1. TTL: Automatic expiry
-2. Event-Based: Invalidate on change
-3. Versioning: Change cache key
-4. Scan & Invalidate: Clear matching keys
-
-Challenges:
-- Cache stampede: Too many requests on miss
-- Solution: Lock or queuing
-```
-
-## Monitoring
+## Configuration Tips
 
 ```bash
-INFO stats              # Cache stats
-DBSIZE                  # Number of keys
-MONITOR                 # Live command trace
-CLIENT LIST             # Connected clients
+# Persistent storage
+appendonly yes          # AOF (append-only file)
+save 900 1             # RDB: save if 1 key changed in 900s
+
+# Memory management
+maxmemory 100mb
+maxmemory-policy allkeys-lru
+
+# Network
+timeout 0              # No idle timeout
+tcp-keepalive 300      # Connection health
+
+# Replication
+slaveof host port      # Slave configuration
 ```
 
----
+## Quick Reference
+
+```bash
+# Basic cache operation
+SET cache_key "value" EX 3600
+GET cache_key
+
+# Queue pattern
+LPUSH queue job1
+RPOP queue
+
+# Pub/Sub
+PUBLISH topic message
+SUBSCRIBE topic
+
+# Monitor
+KEYS *
+DBSIZE
+INFO
+```

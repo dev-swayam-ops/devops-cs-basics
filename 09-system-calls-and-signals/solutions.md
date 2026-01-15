@@ -1,275 +1,252 @@
-# 09-16: Exercises, Solutions & Quizzes (Consolidated)
+# 09 - System Calls and Signals Solutions
 
-## Module 09 - System Calls & Signals
+## Easy Solutions (1-5)
 
-**Exercises**:
-1. Common syscalls (fork, exec, read, write)
-2. SIGTERM vs SIGKILL
-3. Trap signal handlers
-4. Strace syscall counting
-5. Child process management
-6. Signal handlers in scripts
-7. Real-time signals
-8. Signal-safe functions
-9. Process communication
-10. Debugging signals
+### Solution 1: List All Signals
 
-**Solutions**:
-- Syscalls: Fork creates process, exec replaces it
-- Signals: SIGTERM graceful (caught), SIGKILL forced (uncatchable)
-- Trap: Registers handler for signal in bash
-- Strace: `strace -c cmd` counts syscalls
-- Child management: Use `wait` to reap zombie processes
+**Command**:
+```bash
+kill -l
+```
 
-**Quiz**:
-Q1-Q7: read/write, boundary crossing, SIGTERM, Uncatchable, strace, Async, fork/exec
-Q8: Fork copies, exec replaces
-Q9: Try SIGTERM first, use SIGKILL if necessary
-Q10: Signal handlers, masks, safe functions
+**Output Example**:
+```
+ 1) SIGHUP       2) SIGINT       3) SIGQUIT      4) SIGILL       5) SIGTRAP
+ 6) SIGABRT      7) SIGBUS       8) SIGFPE       9) SIGKILL     10) SIGUSR1
+11) SIGSEGV     12) SIGUSR2     13) SIGPIPE     14) SIGALRM     15) SIGTERM
+...
+```
+
+**Analysis**:
+- Total: 64 signals (varies by OS)
+- SIGTERM: 15 (graceful)
+- SIGKILL: 9 (forced)
+- SIGSTOP: 19 (pause)
+- By name or number: both work
 
 ---
 
-## Module 10 - Scheduling & Performance
-
-**Exercises**:
-1. Understand CFS scheduler
-2. Load average interpretation
-3. Nice/renice process priority
-4. CPU affinity with taskset
-5. Context switch overhead
-6. Load balancing
-7. Latency vs throughput trade-off
-8. Perf tool for profiling
-9. Stress testing
-10. Performance optimization
-
-**Solutions**:
-- CFS: Completely Fair Scheduler, divides time fairly
-- Load average: Number of processes waiting for CPU
-- Nice: -20 (highest) to +19 (lowest priority)
-- CPU affinity: Pin process to specific CPU cores
-- Perf: Performance profiling tool
+### Solution 2: Send SIGTERM to Process
 
 **Commands**:
-```
-nice -n 10 cmd         Run low priority
-renice 5 -p PID        Change priority  
-taskset -c 0 cmd       Pin to CPU 0
-perf stat cmd          Performance metrics
-perf record cmd        Record profile
-perf report            Analyze profile
-stress-ng --cpu 4      Load test CPUs
+```bash
+sleep 100 &
+PID=$!
+kill -TERM $PID
 ```
 
-**Quiz**:
-Q1-Q7: CFS, Load avg, Nice value, Priority change, Context switch, Affinity, Load balance
-Q8: CFS divides CPU time fairly
-Q9: Check load, identify with top, adjust priority
-Q10: Monitor latency, measure throughput
+**Output Example**:
+```
+[1] 12345
+[1]+  Terminated              sleep 100
+```
+
+**Analysis**:
+- Signal sent: graceful termination
+- Time: immediate (app decides exit)
+- Clean shutdown: allows cleanup
 
 ---
 
-## Module 11 - Distributed Systems
-
-**Exercises**:
-1. CAP theorem understanding
-2. Consistency models (strong vs eventual)
-3. Consensus algorithms (Raft, Paxos)
-4. Replication strategies
-5. Two-phase commit
-6. Byzantine failures
-7. Failure detection (heartbeat)
-8. Leader election
-9. Split-brain scenarios
-10. Distributed tracing
-
-**Key Concepts**:
-- CAP: Pick 2 of 3 (Consistency, Availability, Partition tolerance)
-- Eventual consistency: Common in distributed systems
-- Consensus: Agreement among nodes
-- Raft: Modern consensus algorithm
-- Byzantine: Nodes can be faulty/malicious
-
-**Quiz**:
-Q1-Q7: CAP=2, Eventual, Consensus, Replication, Raft, Heartbeat, Byzantine
-Q8: Consistency hard, eventual common
-Q9: Split-brain needs quorum
-Q10: Heartbeat, failover, quorum
-
----
-
-## Module 12 - Databases for DevOps
-
-**Exercises**:
-1. SQL vs NoSQL trade-offs
-2. ACID properties
-3. Indexing strategies
-4. Query optimization with EXPLAIN
-5. Replication and failover
-6. Backup and recovery
-7. Connection pooling
-8. Sharding strategies
-9. Monitoring databases
-10. Capacity planning
-
-**Solutions**:
-- ACID: Atomicity, Consistency, Isolation, Durability
-- Index: B-tree most common, speeds up queries
-- Replication: Master-slave or master-master
-- Sharding: Horizontal scaling by data range
-- Backup: Regular snapshots, test restore
+### Solution 3: Force Kill with SIGKILL
 
 **Commands**:
-```
-EXPLAIN ANALYZE SELECT...     Query plan
-CREATE INDEX idx ON table(col)
-mysqldump -u root db > bkp.sql
-SHOW MASTER STATUS             Replication
+```bash
+sleep 100 &
+kill -9 $!
 ```
 
-**Quiz**:
-Q1-Q7: ACID, Index, Replica, Optimize, Shard, Backup, Failover
-Q8: ACID properties
-Q9: Index creation
-Q10: 3-2-1 backup rule
+**Output Example**:
+```
+[1] 12346
+[1]+  Killed                  sleep 100
+```
+
+**Differences**:
+- SIGTERM: process can ignore/handle
+- SIGKILL: forced (can't catch)
+- SIGKILL: process terminates immediately
+- SIGKILL: can't clean up
 
 ---
 
-## Module 13 - Caching and Queues
+### Solution 4: Pause and Resume
 
-**Exercises**:
-1. Cache invalidation strategies
-2. Redis data structures
-3. Memcached vs Redis comparison
-4. Queue systems (RabbitMQ, Kafka)
-5. Cache warming
-6. TTL and expiration
-7. Cache stampede prevention
-8. Distributed caching
-9. Message ordering
-10. Dead-letter queues
+**Commands**:
+```bash
+sleep 100 &
+PID=$!
+kill -STOP $PID
+sleep 2
+ps aux | grep $PID  # Check state
+kill -CONT $PID
+```
 
-**Solutions**:
-- Invalidation: TTL, tag-based, event-based
-- Redis: Supports strings, lists, sets, hashes, sorted sets
-- Queue: Async processing, decoupling
-- Stampede: Use lock when cache missing
-- TTL: Set expiration time
+**Output Example**:
+```
+[1] 12347
+user  12347  0.0  0.0 ... T    (State: T = stopped)
+[1]+  Stopped                  sleep 100
+[1]+  Continued                sleep 100
+```
 
-**Quiz**:
-Q1-Q7: Invalidate, TTL, Stampede, Write-through, Redis, Order, Dead letter
-Q8: LRU eviction
-Q9: Stampede prevention with lock
-Q10: Async messaging
+**States**:
+- S: sleeping (interruptible)
+- T: stopped (SIGSTOP)
+- R: running
 
 ---
 
-## Module 14 - Security Basics
+### Solution 5: Signal Multiple Processes
 
-**Exercises**:
-1. Authentication methods
-2. Encryption symmetric vs asymmetric
-3. TLS/SSL certificates
-4. Vulnerability scanning
-5. Security hardening
-6. Firewall rules
-7. SELinux/AppArmor
-8. Access control lists
-9. Audit logging
-10. Incident response
+**Commands**:
+```bash
+sleep 100 & sleep 100 & sleep 100 &
+pkill -TERM sleep
+jobs
+```
 
-**Solutions**:
-- Auth: Password, 2FA, OAuth, Certificates
-- Encryption: Symmetric (fast), Asymmetric (slow), Hash (one-way)
-- TLS: Mutual authentication
-- Hardening: Least privilege, no default creds
-- Auditing: Log access, changes
-
-**Best Practices**:
-- Least privilege principle
-- Defense in depth
-- Regular updates and patches
-- Strong passwords
-- 2FA everywhere
-
-**Quiz**:
-Q1-Q7: Privilege, Encrypt, Auth, TLS, 2FA, HTTPS, Audit
-Q8: Symmetric vs asymmetric
-Q9: Defense in depth
-Q10: Patching, testing, response plan
+**Output Example**:
+```
+[1] 12348
+[2] 12349
+[3] 12350
+[1]-  Terminated    sleep 100
+[2]-  Terminated    sleep 100
+[3]-  Terminated    sleep 100
+```
 
 ---
 
-## Module 15 - Observability and Debugging
+## Medium Solutions (6-10)
 
-**Exercises**:
-1. Logging architecture
-2. Metrics collection
-3. Distributed tracing
-4. Alerting and thresholds
-5. Performance profiling
-6. Log analysis
-7. Correlation IDs
-8. SLI/SLO definition
-9. Root cause analysis
-10. Chaos engineering
+### Solution 6: Trap Signal in Bash
 
-**Solutions**:
-- Logging: ELK, centralize logs
-- Metrics: Prometheus scrape, Grafana visualize
-- Tracing: Jaeger, OpenTelemetry
-- Alerting: Set thresholds, escalate
-- SLO: Define service level objectives
+**Script**:
+```bash
+bash -c 'trap "echo Caught SIGTERM!" TERM; sleep 30' &
+sleep 1
+kill -TERM $!
+```
 
-**Tools Stack**:
-- Logs: ELK, Splunk, Datadog
-- Metrics: Prometheus, Grafana
-- Traces: Jaeger, Zipkin
-- Alerting: PagerDuty, Opsgenie
+**Output Example**:
+```
+Caught SIGTERM!
+[1]+  Terminated
+```
 
-**Quiz**:
-Q1-Q7: Logs, Metrics, Traces, SLO, Alert, Profile, Correlation
-Q8: ELK, Prometheus, Jaeger
-Q9: SLO = 99.9% = 43s downtime/month
-Q10: Threshold alerting
+**Explanation**:
+- trap catches signal
+- Handler executes (echo)
+- Process exits cleanly
 
 ---
 
-## Module 16 - Interview Notes & Cheatsheets
+### Solution 7: Ignore Signal with Trap
 
-**Must-Know Topics**:
-- OS: Virtual memory, scheduling, signals
-- Processes: Creation, states, lifecycle
-- Threads: Safety, synchronization, deadlock
-- Networking: TCP/IP, DNS, HTTP
-- Storage: Inodes, RAID, filesystem
-- Distributed: CAP, consensus, replication
-- Databases: ACID, indexing, sharding
-- Security: Encryption, authentication
-- DevOps: Docker, K8s, CI/CD, monitoring
+**Script**:
+```bash
+bash -c 'trap "" TERM; sleep 30' &
+PID=$!
+sleep 1
+kill -TERM $PID
+sleep 2
+ps aux | grep $PID
+```
 
-**Interview Patterns**:
-- Q1-Q7: Domain knowledge
-- Q8: System design (scale architecture)
-- Q9: Trade-off analysis
-- Q10: Incident response + learning
+**Output Example**:
+```
+[1] 12352
+(process still running after kill)
+user 12352 0.0 0.0 ... sleep 30
+```
 
-**Preparation Tips**:
-1. Study fundamentals deeply
-2. Practice system design problems
-3. Review past projects, document learnings
-4. Prepare specific examples for behavior questions
-5. Know your tools intimately
-6. Explain concepts simply
-7. Ask clarifying questions
-8. Discuss trade-offs confidently
-
-**Common Topics**:
-- Scale to 1M users
-- Consistency vs availability
-- Memory vs disk trade-offs
-- Latency vs throughput
-- Cost vs performance
-- Reliability vs speed
+**Note**:
+- `trap ""` ignores signal
+- Works for signals that can be caught
+- SIGKILL (-9) still kills
 
 ---
+
+### Solution 8: Identify Zombie Process
+
+**Script**:
+```bash
+python3 -c "import os; os.fork(); os.exit()" &
+sleep 1
+ps aux | grep defunct
+```
+
+**Output Example**:
+```
+user  12354  0.0  0.0 ... <defunct>
+```
+
+**Explanation**:
+- Child exits, parent doesn't reap
+- Shows as `<defunct>` in ps
+- Parent must call wait()
+
+---
+
+### Solution 9: Send Signal by Name
+
+**Commands**:
+```bash
+sleep 100 &
+PID=$!
+
+# By name
+kill -SIGTERM $PID
+
+# By number
+sleep 100 &
+kill -15 $PID
+```
+
+**Result**:
+- Same effect (signal 15 = SIGTERM)
+- Names: clearer, harder to type
+- Numbers: shorter, need reference
+
+---
+
+### Solution 10: Handle SIGINT in Script
+
+**Script**:
+```bash
+bash -c 'trap "echo Interrupted! Cleaning up..." INT; sleep 30'
+```
+
+**On Ctrl+C**:
+```
+^CInterrupted! Cleaning up...
+(script exits)
+```
+
+**Analysis**:
+- INT = SIGINT = signal 2
+- Ctrl+C sends SIGINT
+- Trap catches it before exit
+- Useful for cleanup tasks
+
+---
+
+## Quick Reference
+
+```bash
+# Send signals
+kill -TERM $PID          # Graceful
+kill -9 $PID             # Force kill
+kill -SIGTERM $PID       # By name
+pkill -TERM sleep        # Multiple
+
+# Trap in bash
+trap "command" SIGNAL
+trap "echo done" EXIT
+trap "" TERM             # Ignore
+
+# Check signals
+kill -l
+ps aux                   # See state (T = stopped)
+```

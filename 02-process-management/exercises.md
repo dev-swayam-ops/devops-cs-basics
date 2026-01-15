@@ -1,199 +1,130 @@
-# 02 - Process Management: Exercises
+# 02 - Process Management Exercises
 
-## Exercise 1: Understanding Process IDs (Easy)
+## Easy Exercises (1-5)
 
-Run these commands and answer the questions:
+### Exercise 1: Start and Monitor Background Process
+**Objective**: Launch a process in background and monitor it.
 
-```bash
-echo $$
-ps -p $$
-echo $PPID
-```
-
-1. What is your current shell's PID?
-2. What is your shell's parent PID?
-3. What process is your shell's parent?
+**Task**:
+- Start a long-running process in background (e.g., `sleep 3600 &`)
+- List background jobs using `jobs`
+- Note the job number and PID
+- What state is the process in?
 
 ---
 
-## Exercise 2: Process Hierarchy (Easy)
+### Exercise 2: Send Signals to Process
+**Objective**: Communicate with process using signals.
 
-Run:
-
-```bash
-pstree -p
-```
-
-1. Find `systemd` (PID 1) in the output
-2. Identify at least 3 child processes of `systemd`
-3. Find your shell process and its parent
+**Task**:
+- Start a background sleep process
+- Send SIGTERM signal using `kill -TERM [PID]`
+- What happened to the process?
+- How is this different from SIGKILL?
 
 ---
 
-## Exercise 3: Finding Processes by Name (Easy)
+### Exercise 3: Find Processes by Name
+**Objective**: Locate specific processes.
 
-Use `ps` and `grep` commands to:
-
-```bash
-ps aux | grep bash
-ps aux | grep sleep
-pgrep bash
-```
-
-1. Count how many bash processes are running
-2. Get the PID of your current bash shell
-3. Compare the output of `ps | grep` vs `pgrep`
+**Task**:
+- Start multiple background sleep processes
+- Use `pgrep sleep` to find all sleep processes
+- Use `pidof sleep` to get PIDs
+- Kill all sleep processes using `killall sleep`
 
 ---
 
-## Exercise 4: Process States (Easy)
+### Exercise 4: Check Process Parent-Child Relationship
+**Objective**: Understand process hierarchy.
 
-Create processes in different states:
-
-```bash
-sleep 100 &
-sleep 200 &
-sleep 300 &
-sleep 400 &
-jobs -l
-ps aux | grep sleep
-```
-
-1. List all sleep processes using `jobs`
-2. List them using `ps aux`
-3. Identify the state of each process
-4. What is the difference between `jobs` and `ps aux` output?
+**Task**:
+- Get your current shell PID using `echo $$`
+- Use `ps -o pid,ppid,cmd` to show hierarchy
+- Who is your shell's parent?
+- Start a background process - what is its parent?
 
 ---
 
-## Exercise 5: Signals and Process Termination (Easy)
+### Exercise 5: View Process Details
+**Objective**: Extract detailed process information.
 
-```bash
-sleep 60 &
-PID=$!
-kill -TERM $PID  # or kill -15
-kill -l          # List all signals
-```
-
-1. What is the difference between SIGTERM and SIGKILL?
-2. When should you use each?
-3. What signal is sent by default with `kill` command?
+**Task**:
+- Pick a running process (e.g., bash, init)
+- Use `ps -fp [PID]` to show full details
+- What do VSZ and RSS mean?
+- What is STAT column showing?
 
 ---
 
-## Exercise 6: Background and Foreground Jobs (Medium)
+## Medium Exercises (6-10)
 
-Run:
+### Exercise 6: Create Parent-Child Process Chain
+**Objective**: Understand process creation and relationships.
 
-```bash
-sleep 100
-# Press Ctrl+Z to suspend
-bg              # Resume in background
-fg              # Bring to foreground
-# Press Ctrl+Z again
-kill %1         # Kill by job number
-```
-
-1. What does Ctrl+Z do?
-2. What's the difference between `bg` and `fg`?
-3. How do you kill a job by number instead of PID?
-4. Start 3 background jobs and bring the 2nd one to foreground
+**Task**:
+- Open one shell (Shell 1)
+- In Shell 1, start a background bash: `bash &`
+- In that bash, start another: `bash &`
+- Use `pstree` to show the hierarchy
+- How many shells deep can you nest?
 
 ---
 
-## Exercise 7: Process Resource Usage (Medium)
+### Exercise 7: Monitor Process State Changes
+**Objective**: Watch process state transitions.
 
-Monitor process resource usage:
-
-```bash
-# Start a memory-heavy process
-python3 -c "import time; x = [0]*10000000; time.sleep(100)" &
-
-# Monitor it
-ps aux --sort=-%mem | head -5
-top -n 1 -p [PID]
-```
-
-1. Which process is using the most memory?
-2. How much CPU is it using?
-3. How much virtual memory (VSZ) is it using?
-4. What is the difference between VSZ and RSS?
+**Task**:
+- Start a process and immediately suspend it (Ctrl+Z)
+- Check its state: `ps -o pid,stat,cmd` (state should be T for stopped)
+- Resume it: `bg`
+- State should change back to S or R
+- Modify state by sending SIGSTOP and SIGCONT
 
 ---
 
-## Exercise 8: Zombie Processes (Medium)
+### Exercise 8: Handle Zombie Process
+**Objective**: Understand zombie process creation.
 
-Create a zombie process scenario:
-
-```bash
-# Start a parent process that doesn't wait for children
-bash -c "bash -c 'echo test; exit 0' &" &
-sleep 1
-ps aux | grep defunct
-```
-
-1. What is a zombie process?
-2. Why do zombie processes exist?
-3. How can you prevent them?
-4. How do you clean up zombie processes?
+**Task**:
+- Create a zombie: `bash -c 'sleep 1 &' &` (exits parent, child becomes zombie)
+- Immediately run `ps -o pid,ppid,stat,cmd | grep sleep`
+- Look for `Z` state in STAT column
+- What is the PPID? (should be 1 = init)
+- Zombie will disappear after child terminates
 
 ---
 
-## Exercise 9: Process Communication via Signals (Medium)
+### Exercise 9: Control Foreground and Background
+**Objective**: Master job control.
 
-Write a simple script and send it signals:
-
-```bash
-# Create a script
-cat > test_signal.sh << 'EOF'
-#!/bin/bash
-trap 'echo "Received SIGTERM"' TERM
-trap 'echo "Received SIGINT"' INT
-echo "PID: $$"
-while true; do
-    echo "Running..."
-    sleep 1
-done
-EOF
-
-chmod +x test_signal.sh
-./test_signal.sh &
-PID=$!
-
-kill -TERM $PID
-sleep 1
-kill -INT $PID
-```
-
-1. What does `trap` do?
-2. How can processes respond to signals?
-3. Can you trap SIGKILL? Why or why not?
-4. Modify the script to handle SIGUSR1
+**Task**:
+- Start a process: `sleep 100`
+- Suspend it: Ctrl+Z
+- List jobs: `jobs -l`
+- Resume in background: `bg`
+- Bring to foreground: `fg %1` (replace 1 with job number)
+- How many times can you switch between fg/bg?
 
 ---
 
-## Exercise 10: Process Accounting and Audit (Medium)
+### Exercise 10: Signal Handler Demonstration
+**Objective**: See which signals work on which processes.
 
-Track process execution:
-
-```bash
-# Enable process accounting (requires root)
-sudo psacct          # or acct package
-
-# Check last processes executed
-last
-
-# Use 'w' to see who's logged in
-w
-
-# Get detailed process info
-cat /proc/[PID]/status
-cat /proc/[PID]/cmdline
-```
-
-1. What information is available in `/proc/[PID]/` for each process?
-2. How can a DevOps engineer use this for security auditing?
-3. Create a monitoring script that logs all new process creation
-4. How would you detect unauthorized process execution?
+**Task**:
+- Start: `sleep 3600 &`
+- Try SIGTERM: `kill -TERM [PID]` → process should terminate
+- Start another: `sleep 3600 &`
+- Try SIGSTOP: `kill -STOP [PID]` → process should suspend
+- Resume: `kill -CONT [PID]`
+- Verify with `ps -o pid,stat,cmd`
 
 ---
+
+## Submission Tips
+
+1. Always record PID and job number from output
+2. Compare signals: SIGTERM (graceful) vs SIGKILL (forced)
+3. Understand state letters: R=running, S=sleeping, T=stopped, Z=zombie
+4. Try variations: `kill vs killall vs pkill`
+5. Explore job control in different shells (bash, zsh, etc.)

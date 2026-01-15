@@ -2,150 +2,181 @@
 
 ## What You'll Learn
 
-Master Linux kernel fundamentals:
-- Kernel architecture and subsystems
-- Kernel modules and device drivers
-- System calls and syscall interface
-- Kernel logging and dmesg
+- Kernel architecture and purpose
+- System calls (syscalls)
+- Kernel vs user space
+- Process states and context switching
+- Interrupt handling
+- Kernel modules
+- dmesg logs and kernel messages
 - Kernel parameters and tuning
-- Performance profiling
-- Kernel upgrades and management
 
 ## Prerequisites
 
 - Completed **07-dns-and-http-basics**
-- Understanding of Linux processes and memory
-- Comfort with command-line administration
+- Understanding of processes and OS basics
+- Familiarity with Linux command line
 
 ## Key Concepts
 
-### 1. Kernel Subsystems
-- **Process Scheduler**: Allocates CPU time
-- **Memory Manager**: Virtual memory, paging
-- **I/O Manager**: Disk and device access
-- **Network Stack**: TCP/IP protocol handling
-- **Filesystem**: File storage and access
-- **Security**: Permissions, SELinux, AppArmor
+### 1. Kernel Architecture
+```
+User Space
+├── Applications
+├── Libraries (libc)
+└── Shells
 
-### 2. Kernel Modules
-- Loadable code into kernel
-- Extend kernel without recompiling
-- Device drivers often implemented as modules
-- Can be loaded/unloaded dynamically
+System Call Interface
 
-### 3. System Calls
-- Bridge between user space and kernel
-- Examples: open(), read(), write(), fork(), exit()
-- Context switch between user and kernel mode
-- Expensive operation (performance cost)
+Kernel Space
+├── Process Management
+├── Memory Management
+├── File Systems
+├── Device Drivers
+├── Networking
+└── Hardware
+```
 
-### 4. Kernel Logging
-- dmesg buffer holds boot and runtime messages
-- Persisted to /var/log/kern.log
-- Ring buffer, old messages overwritten
-- Critical for hardware and driver debugging
+### 2. System Calls (syscalls)
+- Bridge between user and kernel
+- Examples: open, read, write, fork, exec
+- Switch to kernel mode (expensive)
+- Always go through libc
+
+### 3. Process States
+```
+New → Ready → Running → Blocked → Zombie → Terminated
+      ↑                    ↓
+      └────────────────────┘
+```
+
+### 4. Interrupts
+- Hardware: keyboard, disk, network
+- Software: system calls
+- Interrupt handler: kernel routine
+- Context switch: pause current process
+
+### 5. Kernel Modules
+- Dynamic kernel extensions
+- Can be loaded/unloaded
+- Example: drivers (lsmod shows loaded)
 
 ## Hands-on Lab: Kernel Exploration
 
-### Lab Steps
+### Lab Overview
+Examine kernel messages, modules, and parameters.
+
+### Lab Commands
 
 ```bash
-# 1. Check kernel version
-uname -r
+# 1. Show kernel version
 uname -a
-cat /proc/version
 
-# 2. View kernel messages
-dmesg | tail -20
+# Expected:
+# Linux myhost 5.10.0 #1 SMP x86_64 GNU/Linux
+
+# 2. Kernel release
+uname -r
+
+# Expected: 5.10.0 or similar
+
+# 3. List kernel modules
+lsmod | head
+
+# Expected:
+# Module  Size  Used by
+# overlay 65536 2
+# ext4    614400 3
+
+# 4. Load module (if you have permission)
+sudo modprobe module_name
+
+# Expected: (no output means success)
+
+# 5. Unload module
+sudo modprobe -r module_name
+
+# Expected: (or error if in use)
+
+# 6. Kernel messages
+dmesg | head -20
+
+# Expected:
+# [0.000000] Linux version 5.10...
+# [0.000000] Command line: BOOT_IMAGE=...
+
+# 7. Recent kernel errors
 dmesg | grep -i error
 
-# 3. Check loaded kernel modules
-lsmod
-lsmod | wc -l
+# Expected: (any errors, if any)
 
-# 4. Get module information
-modinfo ext4
-modinfo nf_conntrack
+# 8. Kernel parameters
+sysctl -a | head
 
-# 5. View kernel parameters
-sysctl -a
-sysctl kernel.pid_max
-sysctl vm.swappiness
+# Expected:
+# kernel.pid_max = 4194304
+# kernel.shmmax = 68719476736
 
-# 6. Modify kernel parameter (temporary)
-sysctl -w net.core.somaxconn=65535
+# 9. Change kernel parameter (temporarily)
+sudo sysctl -w kernel.shmmax=1073741824
 
-# 7. Make permanent (add to /etc/sysctl.conf)
-echo "net.core.somaxconn=65535" >> /etc/sysctl.conf
-sysctl -p
+# Expected: kernel.shmmax = 1073741824
 
-# 8. Check process syscall activity
-strace -c ls /tmp
-strace -e open,read ls /tmp
+# 10. Check /proc/sys directly
+cat /proc/sys/kernel/pid_max
 
-# 9. Monitor syscall statistics
-syscall-monitor.sh
-
-# 10. View system call table
-cat /proc/sys/kernel/
+# Expected: 4194304 (max PID)
 ```
 
 ## Validation
 
-Verify your kernel knowledge:
-
 ```bash
 # Can you check kernel version?
-uname -r && echo "✓ Kernel version visible"
+uname -a && echo "✓ Kernel version shown"
 
-# Can you view kernel messages?
-dmesg | tail && echo "✓ Kernel messages accessible"
+# See kernel modules?
+lsmod && echo "✓ Modules listed"
 
-# Can you see modules?
-lsmod | head && echo "✓ Modules visible"
+# View kernel messages?
+dmesg | head && echo "✓ Messages visible"
 
-# Can you modify kernel parameters?
-sysctl kernel.pid_max && echo "✓ Kernel parameters accessible"
+# Access kernel parameters?
+sysctl kernel.pid_max && echo "✓ Parameters shown"
 ```
 
 ## Cleanup
 
-```bash
-# Remove any test modifications
-sysctl -w net.core.somaxconn=4096
-sed -i '/net.core.somaxconn=65535/d' /etc/sysctl.conf
-```
+No cleanup needed (read-only except for sysctl changes).
 
 ## Common Mistakes
 
-1. **Ring buffer overflow**: dmesg buffer is limited, old messages lost
-2. **Kernel module conflicts**: Incompatible modules can panic kernel
-3. **Sysctl not persistent**: Changes lost on reboot without sysctl.conf
-4. **Syscall overhead**: Minimize syscalls in performance-critical code
-5. **Kernel panics**: Don't experiment on production!
+1. **User vs kernel**: User space can't directly access hardware
+2. **Syscall overhead**: Each syscall switches mode (expensive)
+3. **Context switch**: Process scheduling has overhead
+4. **Modules permanent**: Changes lost on reboot (use /etc/sysctl.conf)
+5. **Interrupt handlers**: Must be fast (don't do I/O)
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Kernel panic | Check: dmesg, hardware errors, BIOS settings |
-| Module won't load | Check: modinfo, dependencies, kernel version match |
-| Performance drop | Check: dmesg for errors, syscall tracing, profiling |
-| Device not recognized | Check: dmesg for device, load appropriate module |
-| Kernel crash on boot | Check: grub config, kernel image, boot parameters |
+| Module won't load | Check: lsmod, dmesg for errors |
+| Parameter won't change | Check: permissions, sysctl.conf |
+| Kernel panic | Check: dmesg, hardware issues |
+| High interrupts | Check: irq usage, interrupt storm |
+| Memory issues | Check: kernel.shmmax, limits |
 
 ## Next Steps
 
-1. Move to **09-system-calls-and-signals** for syscall deep dive
-2. Learn about kernel profiling (perf, flamegraphs)
-3. Study kernel debugging (kdb, kgdb)
-4. Explore kernel security (SELinux, AppArmor)
-5. Learn about kernel compilation
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **09-system-calls-and-signals** after completion
 
 ## Additional Resources
 
-- Kernel documentation: https://www.kernel.org/doc/
-- Linux kernel internals: https://www.kernel.org/
-- Kernel modules: `man modprobe`
-- System calls: `man 2 syscalls`
+- Kernel: `man 7 kernel`, `man uname`
+- Syscalls: `man 2 syscalls`
+- Modules: `man modprobe`, `man lsmod`
+- Parameters: `man sysctl`, `man 5 sysctl.conf`
 

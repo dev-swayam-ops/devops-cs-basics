@@ -1,76 +1,168 @@
-# 10 - Scheduling and Performance: Cheatsheet
+# 10 - Scheduling and Performance Cheatsheet
 
-## CPU Scheduling
+## Load and Uptime Commands
 
-| Concept | Definition | Impact |
-|---------|-----------|--------|
-| **Context Switch** | OS switches CPU between processes | 1-10 microseconds overhead |
-| **Time Slice/Quantum** | Time each process runs | Typically 10-100ms |
-| **Preemption** | OS interrupts running process | Ensures fairness |
-| **Load Average** | Average # of runnable processes | Indicator of CPU saturation |
-| **Nice Value** | Process priority (-20 to +19) | Lower = higher priority |
-| **Real-Time** | Highest priority processes | For latency-sensitive tasks |
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `uptime` | Load average | 0.45, 0.50, 0.48 |
+| `watch uptime` | Monitor load | Real-time updates |
+| `cat /proc/loadavg` | Raw load data | Numbers only |
+| `w` | Who and load | Users + load |
+| `top` | Full monitoring | CPU, memory, processes |
 
-## Scheduling Algorithms
+## Priority (Nice) Commands
 
-```
-FIFO (First In First Out):
-- Simple but unfair
-- One long process blocks others
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `nice -n [N] cmd` | Start with priority | nice -n 10 sleep 100 |
+| `renice -n [N] -p [PID]` | Change priority | renice -n 5 -p 1234 |
+| `ps -o nice,cmd` | Show priorities | Per-process nice |
+| `ps -eo pid,ni,cmd` | Extended output | With nice column |
 
-Round Robin:
-- Each process gets time slice
-- Fair, good response time
+## CPU Affinity Commands
 
-Priority-Based:
-- Higher priority runs first
-- Can starve low-priority
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `taskset -c [CPU] cmd` | Pin to CPU | taskset -c 0 sleep 100 |
+| `taskset -cp [PID]` | Check affinity | Which CPUs? |
+| `taskset -cp [CPUs] [PID]` | Change affinity | taskset -cp 0,2 1234 |
+| `numactl --physcpubind=0 cmd` | NUMA binding | taskset alternative |
 
-Multi-Level Queue:
-- Different queues for different priorities
-- Linux standard approach
-```
+## Process Monitoring Commands
 
-## Performance Monitoring
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `top` | Full monitoring | Real-time view |
+| `ps -o pid,nice,cmd` | Process list | With nice |
+| `ps -o pid,%cpu,%mem,cmd --sort=-%cpu` | By CPU usage | Sorted |
+| `top -p [PID]` | Monitor one | Single process |
+
+## Context Switch Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `cat /proc/[PID]/status` | Process details | Has ctxt_switches |
+| `grep ctxt /proc/[PID]/status` | Context switches | Just that info |
+| `cat /proc/stat` | CPU statistics | Global stats |
+| `watch -n 1 'cat /proc/stat'` | Monitor stats | Real-time CPU |
+
+## Nice Value Reference
+
+| Nice | Priority | Use Case | Root |
+|------|----------|----------|------|
+| -20 | Highest | Critical services | Yes |
+| -5 | High | Foreground apps | Yes |
+| 0 | Default | Normal processes | No |
+| 10 | Low | Background work | No |
+| 19 | Lowest | Idle/batch | No |
+
+## Load Average Interpretation
+
+| Load | Meaning | Status |
+|------|---------|--------|
+| Load = CPUs | 1.0 = 1 CPU | Fully utilized |
+| Load < CPUs | 0.5 = 1 CPU | Underutilized |
+| Load > CPUs | 2.0 = 1 CPU | Overloaded |
+| 3 numbers | 1, 5, 15 min | Trend analysis |
+
+## CPU Info Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `nproc` | CPU count | 4, 8, 16... |
+| `cat /proc/cpuinfo` | All CPU info | Detailed |
+| `lscpu` | Human format | Clean output |
+| `grep processor /proc/cpuinfo` | List processors | All cores |
+
+## Performance Analysis
+
+| Metric | Check | Command |
+|--------|-------|---------|
+| CPU usage | High % | top, ps |
+| Load average | Trend | uptime |
+| Context switches | Too many | /proc/stat |
+| CPU affinity | Distribution | taskset -p |
+| Memory pressure | High swap | free -h |
+
+## Scheduler States
+
+| State | Meaning | Duration |
+|-------|---------|----------|
+| Running | On CPU | ~10ms (quantum) |
+| Ready | Waiting for CPU | Until scheduled |
+| Blocked | I/O wait | Until event |
+| Stopped | SIGSTOP signal | Until SIGCONT |
+| Zombie | Terminated, awaiting | Until parent reaps |
+
+## Performance Tuning Tips
 
 ```bash
-uptime                 # Load average
-top                    # CPU usage, context switches
-vmstat 1 5            # Page faults, CPU time
-iostat                # Disk I/O performance
-mpstat                # Per-CPU statistics
-perf top              # CPU hotspots
+# Check load
+uptime
+
+# Find CPU hogs
+top -b -n 1 | head -20
+
+# Check CPU distribution
+top -p and press 1
+
+# Pin process to CPU
+taskset -c 0 command
+
+# Change priority
+renice -n 10 -p [PID]
+
+# Monitor context switches
+watch 'grep ctxt /proc/[PID]/status'
 ```
 
-## Performance Tuning
+## Thread vs Process Scheduling
+
+| Factor | Threads | Processes |
+|--------|---------|-----------|
+| Kernel aware | Yes | Yes |
+| Scheduler | Per-thread | Per-process (CFS) |
+| Context switch | Light | Heavy |
+| Cache benefit | Shared L2/L3 | Separate |
+| Affinity | Per-thread | Per-process |
+
+## Real-Time Scheduling
+
+| Class | Range | Use Case |
+|-------|-------|----------|
+| Normal | nice -20 to 19 | Regular processes |
+| Real-time | priority 0-99 | Kernel only |
+| Batch | Nice 19 | Background |
+| Idle | Special | Very low priority |
+
+## Quick Performance Check
 
 ```bash
-# View nice value
-ps -l | grep process
+# Overall load
+uptime
 
-# Set nice value at start
-nice -n 10 ./program
+# Per-CPU
+top (press 1)
 
-# Change running process
-renice -n 5 -p [PID]
+# Process CPU time
+ps -eo pid,%cpu,cmd --sort=-%cpu
 
-# Real-time priority
-chrt -p [PID]
-sudo chrt -f -p 99 [PID]  # FIFO, highest priority
+# Context switches
+grep ctxt /proc/[PID]/status
 
-# CPU affinity (pin to CPU)
-taskset -c 0 ./program    # Run on CPU 0
+# Memory usage
+free -h
+
+# Disk I/O
+iostat 1 5
 ```
 
-## Key Metrics
+## Common Performance Issues
 
-```
-CPU Utilization: % time CPU is busy (target: 60-80%)
-Context Switches: # per second (high = thrashing)
-Load Average: Running processes (1-2x CPU count OK)
-Wait Time: Time waiting for CPU
-Throughput: Tasks completed per second
-Latency: Time from request to response
-```
-
----
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| High load | CPU saturation | Renice, add CPU |
+| Low CPU usage | I/O wait | Check disk/network |
+| Many context switches | Too many threads | Reduce parallelism |
+| Cache misses | Poor affinity | Use taskset |
+| Unbalanced load | Pinned processes | Rebalance CPUs |

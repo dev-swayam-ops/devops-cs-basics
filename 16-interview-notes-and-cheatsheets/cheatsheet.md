@@ -1,217 +1,235 @@
-# 16 - Interview Notes and Cheatsheets: Combined Reference
+# 16 - Interview Notes and Cheatsheets - Reference
 
-## Core DevOps Concepts Interview Questions
-
-### Operating Systems (Module 01)
-**Q: Explain the difference between kernel mode and user mode.**
-A: Kernel mode has full hardware access; user mode is restricted. System calls bridge the two.
-
-**Q: What are the main OS responsibilities?**
-A: Memory management, process scheduling, I/O handling, security, resource allocation.
-
-### Process Management (Module 02)
-**Q: What's the difference between fork() and exec()?**
-A: fork() creates child process copy; exec() replaces process image with new program.
-
-**Q: How do you handle zombie processes?**
-A: Parent must call wait() to reap child exit status. Kill parent if hung.
-
-### Threading & Concurrency (Module 03)
-**Q: Explain race conditions and how to prevent them.**
-A: Multiple threads accessing shared data unsynchronized. Prevent with locks (mutexes).
-
-**Q: What causes deadlocks?**
-A: Circular lock dependencies (Thread A waits for lock B, B waits for lock A).
-
-### Memory Management (Module 04)
-**Q: What's the difference between VSZ and RSS?**
-A: VSZ = total virtual memory allocated. RSS = actual physical RAM in use.
-
-**Q: How do page faults impact performance?**
-A: Major faults (disk access) are very slow (~1000x slower than RAM access).
-
-### Storage & Filesystems (Module 05)
-**Q: Explain hard links vs symbolic links.**
-A: Hard link = same inode, survives deletion. Symlink = points to filename, breaks on deletion.
-
-**Q: What's in an inode?**
-A: Ownership, permissions, timestamps, size, link count, block pointers.
-
-### Networking (Module 06)
-**Q: Explain the TCP 3-way handshake.**
-A: SYN → SYN-ACK → ACK. Establishes connection before data transfer.
-
-**Q: What layer does TCP operate on?**
-A: Layer 4 (Transport layer) of OSI model.
-
-### DNS & HTTP (Module 07)
-**Q: How does DNS caching work?**
-A: Resolvers cache results with TTL. Reduces lookups, improves performance.
-
-**Q: Difference between HTTP/1.1 and HTTP/2?**
-A: HTTP/2: multiplexing, binary framing, header compression, server push.
-
-### Linux Kernel (Module 08)
-**Q: What are loadable kernel modules?**
-A: Code loaded into kernel without reboot. Useful for device drivers.
-
-**Q: How does the kernel handle interrupts?**
-A: IRQ handler runs, saves state, processes interrupt, restores state.
-
-### Signals (Module 09)
-**Q: Which signals can't be caught?**
-A: SIGKILL (9) and SIGSTOP (19) are uncatchable.
-
-**Q: How do you handle signals in a script?**
-A: Use `trap` command: `trap 'handler_function' SIGTERM`
-
-### Scheduling (Module 10)
-**Q: What is load average?**
-A: Average number of runnable processes. If > CPU count, system is overloaded.
-
-**Q: How to change process priority?**
-A: `renice -n 5 -p [PID]` or `nice -n 10 ./program`
-
-### Distributed Systems (Module 11)
-**Q: Explain CAP theorem.**
-A: Choose 2 of: Consistency, Availability, Partition tolerance. No system has all 3.
-
-**Q: What's eventual consistency?**
-A: All replicas eventually converge to same state. Allows high availability.
-
-### Databases (Module 12)
-**Q: SQL vs NoSQL?**
-A: SQL: structured, ACID, relationships. NoSQL: unstructured, eventual consistency, scalable.
-
-**Q: How to optimize slow queries?**
-A: Add indexes, analyze query plan (EXPLAIN), denormalize if needed.
-
-### Caching (Module 13)
-**Q: Cache invalidation strategies?**
-A: TTL, event-based, versioning, scan-and-invalidate.
-
-**Q: Redis vs Memcached?**
-A: Redis: data structures, persistence, pub/sub. Memcached: simple key-value, distributed.
-
-### Security (Module 14)
-**Q: What's the difference between authentication and authorization?**
-A: Authentication: WHO you are. Authorization: WHAT you can do.
-
-**Q: Name common vulnerabilities.**
-A: SQL injection, XSS, CSRF, broken auth, insecure deserialization.
-
-### Observability (Module 15)
-**Q: Three pillars of observability?**
-A: Logs (events), Metrics (measurements), Traces (request paths).
-
-**Q: What makes a good alert?**
-A: Actionable, low false-positives, clear severity, escalation path.
-
----
-
-## DevOps Tools Quick Reference
+## Module Progression Map
 
 ```
-IaC: Terraform, Ansible, CloudFormation
-CI/CD: Jenkins, GitLab CI, GitHub Actions
-Containers: Docker, Kubernetes, Podman
-Monitoring: Prometheus, Grafana, Datadog
-Logging: ELK Stack, Splunk, CloudWatch
-Databases: PostgreSQL, MongoDB, Redis
-Message Queues: RabbitMQ, Kafka, SQS
+01 OS Fundamentals
+  ↓
+02 Process Management ← 03 Threads
+  ↓
+04 Memory Management ← 05 Storage
+  ↓
+06 Networking ← 07 DNS/HTTP ← 08 Kernel
+  ↓
+09 Signals ← 10 Scheduling
+  ↓
+11 Distributed Systems ← 12 Databases
+  ↓
+13 Caching ← 14 Security
+  ↓
+15 Observability → 16 Interview Notes
 ```
 
----
+## Essential Concepts by Module
 
-## Common Interview Patterns
+### 01: OS Fundamentals
+- CPU, memory, disk interaction
+- Commands: ps, top, free, df, du
 
-**System Design:**
-- Start with requirements (functional, non-functional)
-- Draw architecture diagram
-- Discuss scaling strategies
-- Identify single points of failure
-- Trade-offs (consistency vs availability, etc.)
+### 02: Processes
+- States: ready, running, blocked, zombie
+- Commands: ps, jobs, bg, fg, kill
 
-**Troubleshooting:**
-- Gather information
-- Form hypothesis
-- Test hypothesis
-- Fix root cause
-- Prevent recurrence
+### 03: Threads
+- Synchronization primitives
+- Race conditions, deadlock
+- Commands: pthreads (C), threading (Python)
 
-**Performance:**
-- Profile to identify bottleneck
-- Measure before/after changes
-- Focus on top bottleneck first
-- Use appropriate tools for each layer
+### 04: Memory
+- Virtual vs physical, paging
+- Metrics: VSZ, RSS, PSS
+- Commands: free, cat /proc/meminfo, pmap
 
----
+### 05: Storage
+- Filesystem types: ext4, xfs
+- Permissions: rwx, chmod, chown
+- Commands: lsblk, df, du, chmod, chown
 
-## Quick Command Reference
+### 06: Networking
+- OSI model, TCP/IP, IP subnetting
+- Ports and sockets
+- Commands: ip, ss, ping, traceroute
 
-```bash
-# System
-uname -a                    # OS info
-free -h                     # Memory
-df -h                       # Disk
-top                         # Processes
-ps aux                      # All processes
+### 07: DNS/HTTP
+- DNS records: A, MX, CNAME
+- HTTP methods, status codes
+- Commands: nslookup, dig, curl
 
-# Network
-ip addr show                # IP config
-ss -tlnp                    # Listening ports
-curl -v URL                 # HTTP debug
-dig domain                  # DNS lookup
+### 08: Kernel
+- Modules, system calls, parameters
+- Commands: lsmod, uname, sysctl, dmesg
 
-# Files
-ls -la                      # Files with permissions
-stat file                   # File metadata
-find / -name pattern        # Search files
-du -sh /path                # Directory size
+### 09: Signals
+- Signal types (SIGTERM, SIGKILL)
+- Signal handling and trapping
+- Commands: kill, trap, signal
 
-# Permissions
-chmod 644 file              # Set permissions
-chown user:group file       # Change owner
-umask 022                   # Default permissions
+### 10: Scheduling
+- Process priorities (nice)
+- Load average, context switches
+- Commands: uptime, nice, renice, top
 
-# Package Management
-apt update && apt upgrade   # Debian/Ubuntu
-yum update                  # RHEL/CentOS
-pip install package        # Python packages
+### 11: Distributed Systems
+- CAP theorem, replication, consensus
+- Quorum, leader election
+- Concepts: Raft, eventual consistency
 
-# Version Control
-git clone URL               # Clone repo
-git commit -am "message"    # Commit
-git push origin branch      # Push
-git log --oneline          # History
+### 12: Databases
+- SQL vs NoSQL, ACID
+- Backup/restore, replication
+- Tools: psql, mysql, mongosh
 
-# Container
-docker build -t name .      # Build image
-docker run -d image        # Run container
-docker ps                  # List containers
-kubectl get pods           # List pods
+### 13: Caching
+- Cache strategies, Redis
+- Pub/Sub, queues
+- Commands: redis-cli, SET, GET
 
-# Cloud
-aws s3 ls                  # List S3 buckets
-aws ec2 describe-instances # List EC2 instances
-gcloud compute instances list  # GCP instances
+### 14: Security
+- SSH keys, permissions
+- Encryption, certificates
+- Commands: ssh-keygen, chmod, openssl
+
+### 15: Observability
+- Logs, metrics, traces
+- Debugging tools
+- Commands: journalctl, strace, top
+
+## Interview Question Categories
+
+### System Design
+- "Design a load balanced system"
+- "How would you handle 1M requests/sec"
+- "Design a multi-region architecture"
+
+### Troubleshooting
+- "Application is slow, what do you check?"
+- "Server is out of disk space"
+- "Database queries are timing out"
+
+### Architecture
+- "Microservices vs monolith?"
+- "Stateful vs stateless services?"
+- "How to handle data consistency?"
+
+### Operations
+- "What's your backup strategy?"
+- "How do you deploy without downtime?"
+- "How do you handle secrets?"
+
+### Security
+- "How do you secure infrastructure?"
+- "What's your SSH strategy?"
+- "How do you handle credentials?"
+
+## Red Flags in Interviews
+
+```
+❌ "I don't know" without exploration
+❌ "It depends" without explaining why
+❌ Hardcoded credentials or secrets
+❌ Single point of failure design
+❌ No monitoring or alerting
+❌ No disaster recovery plan
+❌ Ignoring security considerations
 ```
 
----
+## Green Flags
 
-## Interview Preparation Checklist
+```
+✓ Ask clarifying questions
+✓ Discuss tradeoffs
+✓ Mention failure modes
+✓ Show monitoring approach
+✓ Mention testing strategy
+✓ Discuss cost implications
+✓ Propose metrics for success
+```
 
-- [ ] Understand OS concepts deeply (processes, memory, I/O)
-- [ ] Know networking stack and troubleshooting
-- [ ] Familiar with at least one cloud platform (AWS, GCP, Azure)
-- [ ] Experience with containers and Kubernetes
-- [ ] Monitoring/logging setup and best practices
-- [ ] Security fundamentals (auth, encryption, secrets)
-- [ ] Database scaling and optimization
-- [ ] CI/CD pipeline design
-- [ ] Infrastructure as Code (Terraform preferred)
-- [ ] Able to explain system designs
-- [ ] Comfortable with scripting (Bash, Python)
-- [ ] Familiar with Git workflows
+## Skill Matrix
 
----
+| Skill | Beginner | Intermediate | Advanced |
+|-------|----------|--------------|----------|
+| Linux | Basic commands | Scripting, troubleshooting | Kernel tuning |
+| Networks | IP, DNS | TCP/IP, routing | BGP, QoS |
+| Databases | SQL basics | Transactions, indexing | Sharding, optimization |
+| DevOps | Manual deploys | CI/CD pipelines | Full IaC, GitOps |
+| Security | Basic SSH | Encryption, certs | Compliance, hardening |
+
+## Time Complexity Quick Ref
+
+| Operation | Best | Average | Worst |
+|-----------|------|---------|-------|
+| Array search | O(1) | O(n) | O(n) |
+| Hash lookup | O(1) | O(1) | O(n) |
+| BST search | O(1) | O(log n) | O(n) |
+| Sorting | O(n) | O(n log n) | O(n²) |
+| Consistent hashing | O(1) | O(1) | O(1) |
+
+## Performance Rule of Thumb
+
+```
+Optimize for:
+1. Correctness (always first)
+2. Readability (maintainability)
+3. Performance (if needed, measure first)
+
+Don't:
+- Optimize prematurely
+- Ignore logging
+- Skip error handling
+- Forget about monitoring
+```
+
+## Common Mistakes
+
+| Mistake | Impact | Prevention |
+|---------|--------|-----------|
+| No monitoring | Blind to issues | Implement early |
+| Single point of failure | Total outage | Redundancy |
+| Hardcoded secrets | Security breach | Vault/env vars |
+| No backups | Data loss | Automated backups |
+| No testing | Broken deployments | CI/CD tests |
+| Poor documentation | Operational issues | README + runbooks |
+
+## Technical Depth Areas
+
+### Choose 2-3 to specialize in:
+
+1. **Systems**: OS, kernel, performance
+2. **Networking**: Protocols, security, routing
+3. **Databases**: SQL, NoSQL, optimization
+4. **Security**: Encryption, access control, hardening
+5. **DevOps**: Infrastructure, CI/CD, containers
+6. **Distributed Systems**: Consensus, scalability
+7. **Performance**: Profiling, optimization, caching
+
+## Final Checklist Before Interview
+
+```
+Knowledge:
+☐ All 15 modules reviewed
+☐ Can explain each concept
+☐ Know tool for each task
+☐ Understand tradeoffs
+
+Practice:
+☐ Hands-on labs completed
+☐ Exercises solved
+☐ Designed a system
+☐ Debugged a real issue
+
+Soft Skills:
+☐ Can explain clearly
+☐ Ask clarifying questions
+☐ Admit when uncertain
+☐ Show curiosity
+☐ Listen actively
+```
+
+## Quick Reference Links
+
+- Linux: man pages, GNU Coreutils
+- Networking: RFCs, OSI model diagram
+- Databases: Official documentation
+- DevOps: CNCF Landscape, Awesome lists
+- Security: OWASP, CIS Benchmarks

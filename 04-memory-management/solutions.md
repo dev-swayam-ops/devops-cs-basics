@@ -1,301 +1,309 @@
-# 04 - Memory Management: Solutions
+# 04 - Memory Management Solutions
 
-## Solution 1: Memory Layout
+## Easy Solutions (1-5)
 
-### Command Output
+### Solution 1: Check System Memory Status
 
+**Command**:
 ```bash
-cat /proc/self/maps
-
-Output:
-7ffff7dcd000-7ffff7fb8000 r-xp 00000000 ca:01 1971705  /lib64/libc-2.31.so
-7fffea9c6000-7fffea9c7000 rw-p 00000000 00:00 0 [heap]
-7fffea9c7000-7fffead47000 rw-p 00000000 00:00 0 [heap]
-7ffff7fff000-7ffffffff000 rw-p 00000000 00:00 0 [stack]
-ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0 [vsyscall]
-```
-
-### Memory Segments
-
-| Segment | Purpose | Growth | Access |
-|---------|---------|--------|--------|
-| **Text (Code)** | Executable instructions | Downward | Read-only, no writes |
-| **Initialized Data** | Global variables initialized in code | Downward | Readable, writable |
-| **Uninitialized Data (BSS)** | Global variables (auto-initialized to 0) | Downward | Readable, writable |
-| **Heap** | Dynamic memory (malloc/new) | Upward ↑ | Readable, writable |
-| **Stack** | Local variables, parameters, return addresses | Downward ↓ | Readable, writable |
-| **Memory-Mapped Regions** | Files, libraries, shared memory | Various | Depends |
-
-### Answers
-
-1. **Main segments**: Text, Data, BSS, Heap, Stack
-2. **Purpose**: See table above
-3. **Growth**: Heap grows UP (increasing addresses); Stack grows DOWN (decreasing addresses)
-
----
-
-## Solution 2: Check Memory Usage
-
-### Output Example
-
-```
-ps aux | grep python3
-user    1234  5.2  15.3  1234560  901000 pts/0  S  10:00  0:05 python3
-
 free -h
-                total        used        free
-Mem:            7.7Gi       6.2Gi       1.2Gi
-
-top - 10:05:20 up 2 days,  3:45, 2 users, load average: 0.45, 0.52, 0.48
-PID USER COMMAND           VSZ    RSS %MEM
-1234 user python3       1234560  901000  11.3%
 ```
 
-### Answers
-
-1. **VSZ (Virtual Size)**: Total virtual address space allocated for process (includes swapped, mmapped, and not yet committed)
-2. **RSS (Resident Set)**: Actual physical RAM pages the process occupies in memory
-3. **Why VSZ > RSS**: 
-   - Process allocated memory via `malloc` but hasn't yet used all of it
-   - Libraries are mmap'd but unused sections don't consume RSS
-   - Data structures reserve space but don't fully populate it
-
-### Example
-
-```bash
-# Allocate 1GB but only touch 100MB
-python3 << 'EOF'
-x = [0] * (1024 * 1024 * 128)  # 1GB allocated (VSZ)
-x[0] = 1                        # Only first element used (small RSS)
-import time; time.sleep(100)
-EOF
-
-# Result: VSZ = 1GB+, RSS = ~10MB
+**Output Example**:
 ```
+              total  used  free  shared  buff/cache  available
+Mem:          15Gi  4.2Gi 2.3Gi  256Mi       8.5Gi       10Gi
+Swap:         2.0Gi    0B  2.0Gi
+```
+
+**Answers**:
+- Used percentage: 4.2 / 15 = 28%
+- Swap used: 0B (not needed)
+- Free: 2.3Gi (completely unused)
+- Available: 10Gi (can be freed if needed - includes cache)
+
+**Explanation**:
+- `available` > `free` (cache can be freed)
+- Swap unused = memory pressure not critical
+- 28% used = healthy system
 
 ---
 
-## Solution 3: Memory Allocation Patterns
+### Solution 2: View Process Memory Usage
 
-### Expected Output
-
+**Commands**:
 ```bash
-Initial RSS:
-VmRSS:     500 kB
-
-After allocation:
-VmRSS:  100512 kB
+echo $$
+ps -o pid,vsz,rss,cmd -p $$
 ```
 
-### Answers
+**Output Example**:
+```
+2345
+PID  VSZ     RSS    CMD
+2345 4234    2340   bash
+```
 
-1. **RSS increase**: ~100,000 KB (100 MB) increase
-2. **All allocated used?**: Yes, we accessed the array, so all pages are faulted in
-3. **Allocated vs used**: 
-   - Allocated = requested from OS
-   - Used = actually resident in RAM
+**Answers**:
+- VSZ: 4234 KB = ~4.2 MB (virtual memory)
+- RSS: 2340 KB = ~2.3 MB (physical RAM)
+- Ratio: 2340/4234 = 55% (about half in RAM)
+
+**Explanation**:
+- VSZ = total allocated (includes shared libs, swap potential)
+- RSS = actually in RAM (dirty pages)
+- Difference = can be swapped to disk
 
 ---
 
-## Solution 4: Memory Limits
+### Solution 3: Compare Memory Before and After
 
-### Expected Output
-
+**Commands**:
 ```bash
-# After ulimit -v 500000
-Segmentation fault (core dumped)
-# Reason: Tried to allocate 1GB but limit is 500MB
-```
-
-### Answers
-
-1. **What happened**: Program crashed with "Segmentation fault" when trying to allocate more than limit
-2. **Why use limits**: 
-   - Prevent runaway processes from consuming all memory
-   - Protect system stability
-   - Fair resource sharing
-   - Security (prevent DoS)
-3. **For services**:
-   ```bash
-   # In systemd service file
-   [Service]
-   MemoryLimit=1G
-   
-   # Or in shell
-   ulimit -v 1000000  # Set 1GB limit
-   systemctl start myservice
-   ```
-
----
-
-## Solution 5: Swap Usage
-
-### Output Sequence
-
-```
 # Before
 free -h
-Mem:  7.7Gi  1.2Gi  5.2Gi
-Swap: 2.0Gi  0.0Gi  2.0Gi
 
-# During large allocation
+# Open large app (e.g., Firefox)
+firefox &
+
+# After
 free -h
-Mem:  7.7Gi  7.6Gi  100.0Mi
-Swap: 2.0Gi  1.5Gi  500.0Mi
-
-# vmstat output
-vmstat 1 5
-procs -----------memory---------- ---swap--
- r  b   swpd   free   buff  cache   si   so
- 0  3  1500000  10000  100   500000  100  200  ← Swap in/out activity
 ```
 
-### Answers
+**Output Example**:
+```
+Before: Mem: 15Gi used 4.2Gi free 10Gi
+After:  Mem: 15Gi used 6.5Gi free 8Gi
+```
 
-1. **When swap used**: When physical RAM is full, OS moves inactive pages to disk
-2. **Performance impact**: Massive degradation (disk is 1000x slower than RAM)
-3. **Detection**:
-   ```bash
-   # Alert if swap > 50%
-   free -h | awk '/^Swap/ {
-       total = $2; used = $3;
-       pct = (used / total) * 100
-       if (pct > 50) print "ALERT: High swap usage: " pct "%"
-   }'
-   ```
+**Analysis**:
+- Used increased by 2.3Gi
+- Available decreased by 2.3Gi
+- Free may not change (used includes cache)
+- Application took ~2.3Gi RAM
+
+**Explanation**:
+- Opening app allocates memory
+- Buffered data may be freed automatically
+- Available = accurate metric for "can allocate"
 
 ---
 
-## Solution 6: Page Faults
+### Solution 4: Identify High Memory Processes
 
-### strace Output
-
+**Commands**:
 ```bash
-strace -c ls /etc
-% time     seconds  usecs/call     calls    errors name
------- ----------- ----------- --------- --------- ----------------
- 20.30    0.000203        23.7        21           brk
- 15.50    0.000155        18.1        18           mmap2
-  ...
-
-# mmap = memory mapping (allocate pages)
-# brk = extend heap
+ps aux --sort=-%mem | head -6
 ```
 
-### Answers
+**Output Example**:
+```
+USER   PID %CPU %MEM VSZ     RSS    TTY STAT START TIME CMD
+root   234  0.2  8.5  1234567 1234M ?   Sl   10:00 2:30 firefox
+user   567  0.1  3.2  567890  456M  ?   Ss   10:05 0:45 java
+user   890  0.0  1.5  234567  234M  pts Ss   10:10 0:12 bash
+```
 
-1. **Page fault**: When process accesses unmapped memory, OS must map the page in
-2. **Major vs minor**:
-   - **Minor**: Page is in RAM but not yet in process's page table
-   - **Major**: Page is on disk (swap), must be read from disk
-3. **Performance impact**: Major faults are very slow (disk I/O); too many = system is thrashing
+**Answers**:
+- Highest: firefox at 8.5% (1234M RSS)
+- %MEM = RSS / Total RAM * 100
+- 1234M / 15Gi = ~8.2%
 
 ---
 
-## Solution 7: Memory Leaks
+### Solution 5: Set Memory Limit
 
-### Detection Method
-
+**Commands**:
 ```bash
-# Monitor RSS over time
-watch -n 5 'cat /proc/[PID]/status | grep VmRSS'
+# Check limit
+ulimit -v
 
-# If RSS constantly increases → memory leak
+# Set to 100MB
+ulimit -v 100000
+
+# This will fail (exceeds limit)
+bash -c 'a=($(seq 1 1000000))'
+
+# Remove limit
+ulimit -v unlimited
 ```
 
-### Answers
+**Output Example**:
+```
+unlimited     # Current (before)
+bash: xmalloc: allocator ran out of memory # Error
+unlimited     # After removal
+```
 
-1. **Memory leak**: Memory is allocated but never freed, gradually consuming all RAM
-2. **Detection**: RSS grows without bound over time
-3. **Fix**:
-   ```python
-   # Remove circular references
-   obj['ref'] = None  # Break cycle
-   
-   # Or use garbage collector
-   import gc
-   gc.collect()  # Force garbage collection
-   ```
+**Explanation**:
+- `ulimit -v` sets virtual memory ceiling
+- 100000 KB = ~100 MB
+- Allocation fails when exceeds limit
+- Useful for preventing runaway processes
 
 ---
 
-## Solution 8: Cache Efficiency
+## Medium Solutions (6-10)
 
-### Expected Output
+### Solution 6: Understand Page Faults
 
-```
-Sequential: 0.050s
-Random: 0.500s
-Ratio: 10x slower!
-```
-
-### Answers
-
-1. **Why sequential faster**: CPU cache prediction; processor prefetches next sequential lines
-2. **Cache locality**: Accessing nearby memory is faster (temporal/spatial locality)
-3. **Optimization**:
-   - **Spatial**: Access array sequentially, not randomly
-   - **Temporal**: Reuse data soon after first access
-   - **Example**:
-   ```python
-   # BAD: Cache misses
-   for i in range(1000000):
-       process(random_array[random_index])
-   
-   # GOOD: Sequential (cache hits)
-   for i in range(1000000):
-       process(sequential_array[i])
-   ```
-
----
-
-## Solution 9: Memory Protection
-
-### Expected Output
-
+**Commands**:
 ```bash
-Segmentation fault (core dumped)
-# OS prevented access to invalid memory
+# Show page faults
+cat /proc/self/stat | awk '{print "Minor: " $10 ", Major: " $12}'
+
+# Run in loop to see changes
+for i in {1..5}; do
+  cat /proc/self/stat | awk '{print "Minor: " $10 ", Major: " $12}'
+  sleep 1
+done
 ```
 
-### Output of `cat /proc/$$/maps`
-
+**Output Example**:
 ```
-562ddea9b000-562ddea9d000 r--p 00000000 ca:01 1234567 /bin/cat
-562ddea9d000-562deaa2b000 r-xp 00002000 ca:01 1234567 /bin/cat
-562deaa2b000-562deaa34000 r--p 00090000 ca:01 1234567 /bin/cat
-562deaa35000-562deaa37000 rw-p 00099000 ca:01 1234567 /bin/cat
-7ffd78c0a000-7ffd78c2b000 rw-p 00000000 00:00 0        [stack]
+Minor: 4567, Major: 12
+Minor: 4589, Major: 12
+Minor: 4612, Major: 12
 ```
 
-### Answers
-
-1. **Memory protection**: OS enforces access controls (read, write, execute)
-2. **Why important**: Prevents:
-   - One process corrupting another's memory
-   - Executing data as code (shellcode attack)
-   - Writing to read-only regions
-3. **Accessing unallocated memory**: Segmentation fault (SIGSEGV signal)
+**Explanation**:
+- Minor faults: page in RAM, just update TLB (cheap)
+- Major faults: page on disk, read from disk (expensive)
+- Minor increases with normal access (TLB misses)
+- Major indicates swapping (bad performance)
 
 ---
 
-## Solution 10: Memory Profiling
+### Solution 7: Detect Memory Leak
 
-### Output
+**Script**:
+```bash
+# Terminal 1: Start process
+bash -c 'while true; do a=(${a[@]} $(seq 1 1000)); done'
 
-```
-Line #      Mem usage    Increment   Line Contents
-     1      50.0 MiB      50.0 MiB   from memory_profiler import profile
-     5      50.0 MiB       0.0 MiB   @profile
-     6      50.0 MiB       0.0 MiB   def allocate():
-     7     127.5 MiB      77.5 MiB       x = [0] * 10000000
-     8     205.0 MiB      77.5 MiB       y = [0] * 20000000
+# Terminal 2: Monitor
+watch -n 1 'ps -o pid,vsz,rss,cmd | grep -v grep | tail -2'
 ```
 
-### Answers
+**Output Example**:
+```
+PID  VSZ      RSS    CMD
+2345 45234    4234   bash -c while
+2346 50567    5123   bash -c while
+# VSZ and RSS increasing every second
+```
 
-1. **What profiler shows**: Memory used at each line, increment per line
-2. **Where most used**: Line 8 allocates 20M array
-3. **Optimization**: Use generators instead of lists, use numpy arrays, delete unused objects
+**Explanation**:
+- VSZ increasing = memory allocated
+- RSS increasing = memory in RAM
+- Linear growth = memory leak
+- Stops growing = memory stabilized
 
 ---
+
+### Solution 8: Analyze Memory Map
+
+**Commands**:
+```bash
+cat /proc/self/maps | head -10
+```
+
+**Output Example**:
+```
+56148d2a2000-56148d2ac000 r-xp /bin/bash
+56148d4ab000-56148d4c5000 rw-p /bin/bash
+7f3a2e000000-7f3a2e1d1000 rw-p [heap]
+7f3a2e400000-7f3a3e400000 rw-p [stack]
+```
+
+**Analysis**:
+- First: text (r-x = read/execute)
+- Second: data (rw- = read/write)
+- heap: dynamic allocation (rw-)
+- stack: function calls (rw-)
+
+**Explanation**:
+- Text: immutable code
+- Data: initialized globals
+- Heap: malloc/new allocations
+- Stack: local variables, function parameters
+
+---
+
+### Solution 9: Calculate Effective Memory
+
+**Commands**:
+```bash
+# Get values
+free -h | grep Mem
+
+# Calculate
+free | awk 'NR==2 {
+  printf "Used: %d KB\n", $3
+  printf "Available: %d KB\n", $7
+  printf "Percent: %.1f%%\n", ($3/$2)*100
+  printf "Overhead: %d KB\n", ($2-$7)
+}'
+```
+
+**Output Example**:
+```
+              total  used   free  available
+Mem:          15Gi  4.2Gi 10Gi  10.5Gi
+
+Used: 4300 KB
+Available: 10700 KB
+Percent: 28.7%
+Overhead: 4500 KB
+```
+
+**Explanation**:
+- Overhead = kernel + buffers/cache
+- Available > free = buffers can be freed
+- True free = available (not free)
+
+---
+
+### Solution 10: Measure Memory Overhead
+
+**Commands**:
+```bash
+# Initial state
+echo "Processes: $(ps aux | wc -l)"
+free -h | grep Mem
+
+# Start 5 bash processes
+for i in {1..5}; do bash & done
+
+# Check again
+sleep 1
+echo "Processes: $(ps aux | wc -l)"
+free -h | grep Mem
+
+# Calculate per-process
+free | awk 'NR==2 {printf "Per-process: %d KB\n", $3/(NR-1)}'
+```
+
+**Output Example**:
+```
+Processes: 45      # Before (many system processes)
+Mem: total 15Gi
+Processes: 50      # After (+5 bash processes)
+Mem: total 15Gi
+Per-process: ~400 KB (shared libs, minimal per-process)
+```
+
+**Explanation**:
+- Each bash process small due to shared libraries
+- Shared memory (libc, etc.) counted once
+- VSZ large (includes shared), RSS small (actual unique)
+
+---
+
+## Practice Tips
+
+1. Use `watch` for live monitoring: `watch -n 1 'free -h'`
+2. Monitor page faults: `watch -n 1 'cat /proc/[pid]/stat | awk ...'`
+3. Track memory over time: `free -h >> log.txt` in loop
+4. Use `pmap` for detailed breakdown: `pmap -x [pid]`
+5. Compare RSS before/after to see allocation

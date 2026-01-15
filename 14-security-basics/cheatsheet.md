@@ -1,89 +1,202 @@
-# 14 - Security Basics: Cheatsheet
+# 14 - Security Basics Cheatsheet
 
-## Authentication vs Authorization
+## SSH Key Commands
 
-```
-Authentication: WHO are you?
-- Username/password
-- Multi-factor auth
-- OAuth, SAML
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ssh-keygen -t rsa -b 4096` | Generate key pair | Creates RSA keys |
+| `ssh-copy-id -i key user@host` | Install public key | Enable key auth |
+| `ssh -i key user@host` | Connect with key | Use specific key |
+| `ssh-keygen -l -f key` | Show fingerprint | Verify key |
+| `ssh -v` | Verbose output | Debug connection |
 
-Authorization: WHAT can you do?
-- Role-based access
-- Attribute-based
-- Permissions
-```
+## File Permission Commands
 
-## Encryption
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `chmod 644 file` | Set permissions | rw-r--r-- |
+| `chmod u+x file` | Add execute (owner) | rwxr--r-- |
+| `chmod -R 755 dir` | Recursive | All files in dir |
+| `chown user:group file` | Change owner | New owner |
+| `chgrp group file` | Change group | New group |
+| `stat file` | Show details | All file info |
 
-| Type | Purpose | Example |
-|------|---------|---------|
-| **Symmetric** | Encrypt & decrypt same key | AES-256 |
-| **Asymmetric** | Public/private key pairs | RSA, ECDSA |
-| **Hashing** | One-way, fingerprinting | SHA-256, bcrypt |
+## Permission Modes Reference
 
-## Common Vulnerabilities
+| Mode | Format | Use Case |
+|------|--------|----------|
+| 400 | r------- | Private key |
+| 600 | rw------ | Private file |
+| 644 | rw-r--r-- | Regular file |
+| 700 | rwx------ | Private directory |
+| 755 | rwxr-xr-x | Executable/directory |
+| 777 | rwxrwxrwx | Everyone (bad!) |
 
-```
-OWASP Top 10:
-1. Injection (SQL, NoSQL, OS)
-2. Authentication bypass
-3. Sensitive data exposure
-4. XML External Entities (XXE)
-5. Access control failures
-6. Security misconfiguration
-7. XSS (Cross-Site Scripting)
-8. Insecure deserialization
-9. Using components with known vulns
-10. Insufficient logging/monitoring
-```
+## User and Group Commands
 
-## Security Commands
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `useradd username` | Create user | New account |
+| `usermod -aG group user` | Add to group | User → group |
+| `userdel username` | Delete user | Remove account |
+| `groupadd groupname` | Create group | New group |
+| `groups username` | List groups | User's groups |
+| `id username` | User details | ID and groups |
+| `passwd username` | Set password | Change password |
+
+## Encryption Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `openssl genrsa 2048` | Generate RSA key | Private key |
+| `openssl req -new` | Create CSR | Certificate request |
+| `openssl x509 -in cert` | View cert | Show details |
+| `openssl s_client -connect host:443` | Check cert | TLS handshake |
+| `echo -n text \| sha256sum` | Hash text | SHA256 hash |
+| `openssl passwd -1` | Hash password | crypt format |
+
+## Certificate Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `openssl x509 -text -in cert.pem` | Show certificate | Full details |
+| `openssl x509 -dates -in cert.pem` | Check expiry | Valid dates |
+| `openssl x509 -issuer -in cert.pem` | Show issuer | CA name |
+| `openssl verify cert.pem` | Verify cert | Check validity |
+| `openssl s_client -showcerts` | Get cert chain | All CAs |
+
+## Firewall Commands (ufw)
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `sudo ufw enable` | Turn on firewall | Enable protection |
+| `sudo ufw allow 22/tcp` | Allow port | SSH access |
+| `sudo ufw deny 23/tcp` | Block port | Block telnet |
+| `sudo ufw delete allow 22` | Remove rule | Delete allow |
+| `sudo ufw status` | Show rules | Current rules |
+| `sudo ufw status verbose` | Detailed | Per-interface |
+
+## Firewall Commands (iptables)
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `iptables -A INPUT -p tcp --dport 22 -j ACCEPT` | Allow port | SSH |
+| `iptables -A INPUT -p tcp --dport 23 -j DROP` | Drop port | Telnet |
+| `iptables -L` | List rules | All rules |
+| `iptables -F` | Flush rules | Clear all (careful!) |
+| `iptables-save` | Save rules | Persist |
+
+## Authentication Methods
+
+| Method | Security | Use Case |
+|--------|----------|----------|
+| Password | Low | Basic |
+| SSH key | High | Automation |
+| Certificate | High | TLS/HTTPS |
+| MFA | Highest | Sensitive |
+| OAuth2 | Medium | Web apps |
+
+## Encryption Types
+
+| Type | Speed | Use Case | Example |
+|------|-------|----------|---------|
+| Symmetric | Fast | Data | AES-256 |
+| Asymmetric | Slow | Keys | RSA-2048 |
+| Hash | Fast | Passwords | SHA256, bcrypt |
+| TLS/SSL | Medium | Transport | HTTPS |
+
+## Secure Defaults
 
 ```bash
-# Generate SSH key pair
-ssh-keygen -t ed25519 -f mykey
+# SSH
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+X11Forwarding no
 
-# Encrypt file
-openssl enc -aes-256-cbc -in file -out file.enc
+# File permissions
+umask 077           # New files: 600
+chmod 644 files     # Regular files
+chmod 755 dirs      # Directories
+chmod 600 keys      # Private keys
+
+# Passwords
+12+ characters
+Mixed case, numbers, symbols
+No dictionary words
+```
+
+## Vulnerability Scanning
+
+| Tool | Purpose | Use |
+|------|---------|-----|
+| `nmap` | Port scanning | Open services |
+| `ssh-audit` | SSH config | Security check |
+| `debsecan` | Debian vulns | Outdated packages |
+| `clamav` | Malware | Virus scanning |
+| `lynis` | System audit | General scan |
+
+## Security Checklist
+
+```
+SSH:
+☐ Keys: 4096-bit RSA
+☐ Private: chmod 600
+☐ Disable password auth
+☐ Disable root login
+
+Files:
+☐ configs: 644
+☐ scripts: 755
+☐ keys: 600
+☐ secrets: 600
+
+Users:
+☐ Strong passwords
+☐ Least privilege
+☐ Regular audits
+☐ Remove unused
+
+Firewall:
+☐ Default deny
+☐ SSH allowed
+☐ Services whitelisted
+☐ Log enabled
+
+Updates:
+☐ OS patched
+☐ Apps current
+☐ Kernel latest
+☐ Dependencies updated
+```
+
+## Quick Commands
+
+```bash
+# Generate keys
+ssh-keygen -t rsa -b 4096
+
+# Set permissions
+chmod 600 private_key
+chmod 644 public_key
+
+# Copy key to server
+ssh-copy-id -i key user@host
+
+# Check file perms
+ls -la filename
+stat filename
 
 # Hash password
-echo -n password | sha256sum
-# Better: Use bcrypt/argon2
+echo "password" | sha256sum
 
-# Check SSL certificate
-openssl x509 -in cert.pem -text -noout
+# Check SSL cert
+openssl s_client -connect host:443
 
-# Create self-signed cert
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
+# Show firewall
+sudo ufw status
+
+# View user info
+id username
+groups username
 ```
-
-## Best Practices
-
-```
-- Use HTTPS everywhere
-- Hash passwords (never plain text)
-- Rotate keys regularly
-- Least privilege principle
-- Defense in depth
-- Security headers (CORS, CSP, X-Frame-Options)
-- Input validation/sanitization
-- Output encoding
-- Rate limiting
-- Security logging
-```
-
-## Certificate Management
-
-```bash
-# Check expiration
-openssl x509 -noout -dates -in cert.pem
-
-# View certificate chain
-openssl s_client -connect host:443 -showcerts
-
-# Validate certificate
-openssl verify cert.pem
-```
-
----

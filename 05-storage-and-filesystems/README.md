@@ -2,143 +2,184 @@
 
 ## What You'll Learn
 
-Master storage and filesystem concepts:
-- Filesystem hierarchy and inodes
-- Hard links and soft (symbolic) links
-- Common filesystems (ext4, XFS, Btrfs, ZFS, NFS)
-- Filesystem permissions and attributes
-- RAID levels and redundancy
-- Backup strategies
-- Storage performance
+- Filesystem hierarchy and structure
+- Disk partitions and mounting
+- Filesystem types (ext4, xfs, btrfs)
+- Disk usage analysis
+- File permissions and ownership
+- Inodes and hard links
+- Filesystem performance
 
 ## Prerequisites
 
 - Completed **04-memory-management**
-- Understanding of files and directories
-- Basic Linux commands
+- Basic Linux command knowledge
+- Understanding of directories and files
 
 ## Key Concepts
 
-### 1. Inode Structure
-- **Inode**: Contains file metadata (not filename!)
-- **Hard Link**: Multiple names pointing to same inode
-- **Soft Link**: Pointer to filename (can cross filesystems)
-- **File Descriptor**: Runtime handle to file
+### 1. Filesystem Hierarchy
+```
+/          = root
+├── /bin   = essential programs (ls, cat, etc)
+├── /etc   = configuration files
+├── /home  = user home directories
+├── /tmp   = temporary files
+├── /var   = variable data (logs, caches)
+├── /opt   = third-party applications
+├── /usr   = user programs and libraries
+└── /mnt   = mount points
+```
 
-### 2. Filesystem Types
-- **ext4**: Default Linux filesystem, journaling
-- **XFS**: High-performance, scalable
-- **Btrfs**: Copy-on-write, snapshots, RAID built-in
-- **ZFS**: Enterprise, checksums, compression
-- **NFS**: Network filesystem, remote mount
+### 2. Disk Organization
+- **Partition**: Division of disk (e.g., /dev/sda1)
+- **Mount Point**: Directory where partition is attached
+- **Inode**: File metadata (not filename)
+- **Block**: Unit of disk storage (4KB typical)
 
-### 3. RAID Levels
-- **RAID 0**: Striping (fast, no redundancy)
-- **RAID 1**: Mirroring (redundancy, 50% capacity)
-- **RAID 5**: Striping + parity (balance of speed/redundancy)
-- **RAID 6**: Dual parity (protect against 2 disk failures)
-- **RAID 10**: Stripe of mirrors (fast + redundancy)
+### 3. Filesystem Types
+- **ext4**: Most common Linux
+- **xfs**: High performance
+- **btrfs**: Modern features (snapshots)
+- **FAT32**: USB drives
+- **NTFS**: Windows
 
-### 4. Backup Strategy (3-2-1 Rule)
-- 3 copies of data
-- 2 different media types
-- 1 copy off-site
+### 4. Permissions (rwx)
+- **r** (read): View file contents
+- **w** (write): Modify file
+- **x** (execute): Run as program (directory: enter)
+- **3 sets**: owner, group, others
 
-## Hands-on Lab: Filesystem Operations
+### 5. Hard Link vs Soft Link
+- **Hard link**: Multiple names, same inode
+- **Soft link**: Shortcut, different inode
 
-### Lab Steps
+## Hands-on Lab: Filesystem Exploration
+
+### Lab Overview
+Analyze partitions, mount points, and disk usage.
+
+### Lab Commands
 
 ```bash
-# 1. Check filesystem usage
+# 1. List partitions and mount points
+lsblk
+
+# Expected:
+# NAME FSTYPE MOUNTPOINT
+# sda
+# ├─sda1 ext4 /
+# └─sda2 ext4 /home
+
+# 2. Show disk usage
 df -h
-du -sh /home/*
 
-# 2. View filesystem details
-mount | grep -E "^/dev"
-cat /etc/fstab
+# Expected:
+# Filesystem Size Used Avail Use% Mounted on
+# /dev/sda1   50G  20G  30G  40% /
 
-# 3. Create hard link
-touch original.txt
-ln original.txt hardlink.txt
-ls -i original.txt hardlink.txt  # Same inode
-
-# 4. Create soft link
-ln -s original.txt softlink.txt
-ls -l softlink.txt  # Shows arrow
-
-# 5. Check inode usage
+# 3. Check inode usage
 df -i
 
-# 6. Find files by inode
-find / -inum 12345
+# Expected:
+# Filesystem Inodes  Used Avail Use%
+# /dev/sda1   1.3M  500K 800K  38%
 
-# 7. View filesystem type
-stat /
+# 4. Directory size
+du -sh /home
 
-# 8. Check disk I/O
-iostat -x 1
+# Expected: 2.5G /home
 
-# 9. Monitor disk usage
-iotop
+# 5. Largest directories
+du -sh /* | sort -rh | head -5
 
-# 10. Analyze directory size
-ncdu /home
+# Expected:
+# 3.2G /var
+# 2.5G /home
+# 1.8G /usr
+
+# 6. View permissions
+ls -l /home
+
+# Expected:
+# drwxr-xr-x user group 4096 Jan 15 home
+
+# 7. Show inode number
+ls -i /etc/passwd
+
+# Expected: 654321 /etc/passwd
+
+# 8. Create hard link
+ln /etc/passwd passwd_link
+diff /etc/passwd passwd_link
+
+# Expected: (no diff, same file)
+
+# 9. Create soft link
+ln -s /etc/passwd passwd_shortcut
+cat passwd_shortcut
+
+# Expected: (passwd file contents)
+
+# 10. Check filesystem type
+df -T /
+
+# Expected:
+# Filesystem Type
+# /dev/sda1 ext4
 ```
 
 ## Validation
 
-Verify your filesystem knowledge:
-
 ```bash
-# Can you understand inodes?
-ls -i /etc/hostname && echo "✓ Inode viewing works"
+# Can you see filesystems?
+lsblk && echo "✓ Filesystems visible"
 
-# Can you create links?
-touch test.txt && ln test.txt hardlink.txt && echo "✓ Hard links work"
+# Understand disk usage?
+df -h && echo "✓ Disk usage shown"
 
-# Can you check filesystem?
-mount | head && echo "✓ Filesystem info visible"
+# Know permissions?
+ls -l && echo "✓ Permissions shown"
 
-# Can you understand RAID?
-echo "✓ RAID concepts understood"
+# Understand links?
+echo "✓ Hard/soft links understood"
 ```
 
 ## Cleanup
 
 ```bash
-rm -f original.txt hardlink.txt softlink.txt test.txt
+# Remove test files
+rm -f passwd_link passwd_shortcut
 ```
 
 ## Common Mistakes
 
-1. **Hard link across filesystems**: Can't hard link across filesystems (use soft link)
-2. **Deleting soft link**: Deletes link, not target
-3. **Running out of inodes**: Can run out even with free space
-4. **RAID 0 no redundancy**: Single disk failure = total data loss
-5. **Forgetting off-site backups**: 3-2-1 rule requires off-site copy
+1. **Confusing disk space and inodes**: Inodes separate from blocks
+2. **Mounting wrong partition**: Check `df` before mount
+3. **Filling root partition**: Monitor /var and /tmp
+4. **Hard links across filesystems**: Not possible
+5. **Permission bits order**: User, group, other (ugo)
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Disk full | Check: du -sh, remove old files, compress |
-| No free inodes | Check: ls -i, rm unnecessary files |
-| Slow disk | Use: iostat, iotop, check RAID status |
-| Corrupted filesystem | fsck (unmount first!) or repair |
-| Soft link broken | Check: link target exists |
+| Disk full | Check: du -sh /*, find large files |
+| No inodes | Delete small files, check: df -i |
+| Slow filesystem | Use: fstrim, check fragmentation |
+| Permission denied | Fix: chmod, chown |
+| Broken soft link | Check: ls -l (shows red), fix path |
 
 ## Next Steps
 
-1. Move to **06-networking-fundamentals** for network storage
-2. Learn about NFS and block storage
-3. Study backup and recovery tools (rsync, tar, backup software)
-4. Explore LVM (Logical Volume Management)
-5. Learn about snapshots and versioning
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **06-networking-fundamentals** after completion
 
 ## Additional Resources
 
-- Inode structure: `man inode`
-- Filesystem types: `man filesystems`
-- Disk usage: `man du`, `man df`
-- RAID: https://en.wikipedia.org/wiki/RAID
+- Filesystems: `man 5 fstab`, `man mount`
+- Permissions: `man chmod`, `man chown`
+- Disk tools: `man du`, `man df`, `man lsblk`
 

@@ -2,147 +2,167 @@
 
 ## What You'll Learn
 
-Master observability and debugging techniques:
-- Logs, metrics, and traces (three pillars)
-- Logging best practices
-- Metrics collection and visualization
-- Distributed tracing
-- Debugging tools and techniques
+- Logging fundamentals and levels
+- Monitoring and metrics collection
+- Distributed tracing concepts
+- Debugging tools (strace, ltrace, gdb)
+- Log analysis and aggregation
 - Performance profiling
 - Root cause analysis
 
 ## Prerequisites
 
 - Completed **14-security-basics**
-- Understanding of systems and applications
-- Command-line debugging experience
+- Understanding of processes and systems
+- Comfort with command line
 
 ## Key Concepts
 
-### 1. Three Pillars of Observability
-- **Logs**: Discrete events and messages from application
-- **Metrics**: Quantitative measurements (CPU, latency, errors)
-- **Traces**: Distributed request flow across services
+### 1. Observability Three Pillars
+```
+Logs: Events and messages
+Metrics: Numeric measurements
+Traces: Request flow across services
+```
 
-### 2. Logging Levels
-- **DEBUG**: Detailed information for debugging
-- **INFO**: General informational messages
-- **WARN**: Warning messages, still operating
-- **ERROR**: Error messages, functionality impaired
-- **FATAL**: Fatal errors, system cannot continue
+### 2. Log Levels
+```
+DEBUG: Detailed diagnostic info
+INFO: General informational messages
+WARN: Warning messages (may need attention)
+ERROR: Error messages (problems)
+FATAL/CRITICAL: System failure
+```
 
-### 3. Metrics Types
-- **Gauge**: Current value (CPU usage, memory)
-- **Counter**: Only increases (total requests)
-- **Histogram**: Distribution of values (request latency)
-- **Summary**: Percentiles (p50, p95, p99)
+### 3. Debugging Tools
+- **strace**: System call tracing
+- **ltrace**: Library call tracing
+- **gdb**: Debugger (breakpoints, variables)
+- **valgrind**: Memory profiling
 
-### 4. Debugging Approaches
-- **Print debugging**: Add log statements
-- **Interactive debugging**: Step through code
-- **Tracing**: Track system calls (strace)
-- **Profiling**: Find performance bottlenecks
+### 4. Metrics Types
+- **Counter**: Increasing count (requests)
+- **Gauge**: Current value (memory)
+- **Histogram**: Distribution (latency)
+- **Rate**: Per-second (throughput)
 
-## Hands-on Lab: Observability
+### 5. Distributed Tracing
+```
+Trace ID: Track request across services
+Span: Single operation
+Parent-child: Service relationships
+```
 
-### Lab Steps
+## Hands-on Lab: Log Monitoring and Debugging
+
+### Lab Overview
+Analyze logs, monitor processes, trace system calls.
+
+### Lab Commands
 
 ```bash
-# 1. View application logs
+# 1. View system logs
+journalctl -n 20
+
+# Expected: Last 20 system messages
+
+# 2. Follow live logs
+journalctl -f
+
+# Expected: (real-time messages)
+
+# 3. Show application logs
 tail -f /var/log/syslog
-grep ERROR /var/log/syslog
 
-# 2. Structured logging (JSON)
-echo '{"level":"INFO","msg":"User login","user":"john","timestamp":"2024-01-15"}' | jq
+# Expected: (tailing output)
 
-# 3. Collect metrics with proc filesystem
-cat /proc/stat
-cat /proc/loadavg
-cat /proc/meminfo
+# 4. Search logs
+grep "error" /var/log/syslog
 
-# 4. Top for real-time metrics
-top -b -n 1 | head -20
-top -p $$ -b -n 1
+# Expected: (error lines)
 
-# 5. Vmstat for memory statistics
-vmstat 1 5
+# 5. Trace system calls
+strace -e trace=open,read sleep 1
 
-# 6. Iostat for disk metrics
-iostat -x 1 5
+# Expected: system calls from sleep
 
-# 7. Network metrics
-netstat -i
-ss -s
+# 6. Count system calls
+strace -c sleep 1
 
-# 8. Trace system calls
-strace -e trace=open,read,write echo "test"
+# Expected: call statistics
 
-# 9. Profile with time
-time curl http://example.com
+# 7. Trace library calls
+ltrace -e printf sleep 1
 
-# 10. Debug with set -x
-set -x
-echo "debugging"
-set +x
+# Expected: library calls
+
+# 8. Monitor process
+top -p [PID]
+
+# Expected: (process details)
+
+# 9. CPU profiling
+ps -eo pid,%cpu,cmd --sort=-%cpu
+
+# Expected: (by CPU usage)
+
+# 10. Memory debugging
+ps -eo pid,vsz,rss,cmd --sort=-rss
+
+# Expected: (by memory usage)
 ```
 
 ## Validation
 
-Verify your observability knowledge:
-
 ```bash
 # Can you view logs?
-tail /var/log/syslog && echo "✓ Log viewing works"
+journalctl -n 5 && echo "✓ Logs visible"
 
-# Can you collect metrics?
-cat /proc/loadavg && echo "✓ Metric collection works"
+# Trace system calls?
+strace -e trace=open sleep 1 && echo "✓ Tracing works"
 
-# Can you trace?
-strace -e trace=open echo "test" && echo "✓ Tracing works"
+# Monitor processes?
+ps aux && echo "✓ Monitoring works"
 
-# Can you understand pillars?
-echo "✓ Observability concepts understood"
+# Understand log levels?
+echo "✓ Log levels understood"
 ```
 
 ## Cleanup
 
 ```bash
-rm -f /tmp/debug.log
-unset DEBUG
+# No cleanup needed (read-only operations)
 ```
 
 ## Common Mistakes
 
-1. **Not enough logging**: Can't debug without logs
-2. **Too much logging**: Performance hit and disk usage
-3. **No structured logging**: Hard to parse and search
-4. **No metric retention**: Can't see historical trends
-5. **Not tracing**: Can't see full request path
-6. **No alerting**: Issues not discovered until users complain
-7. **Removing debug logs in prod**: Need them when things break
+1. **Log verbosity**: Too many = noise, too few = blind
+2. **No trace IDs**: Can't correlate requests
+3. **Lost logs**: No persistence in memory
+4. **No timestamps**: Can't order events
+5. **Sensitive data in logs**: Leaks passwords/keys
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Can't find root cause | Check: logs, traces, metrics together |
-| Slow queries | Profile: query time, lock time, execution plan |
-| Memory leak | Monitor: heap growth, garbage collection |
-| High latency | Trace: request path, check bottlenecks |
-| Silent failures | Add: logging, alerts, monitoring |
+| Can't find logs | Check: /var/log, journalctl, app config |
+| Logs too large | Use: rotation, compression, cleanup |
+| Slow response | Check: strace, ltrace, profile |
+| Memory leak | Use: valgrind, top, memory traces |
+| High CPU | Profile: perf, top, flamegraph |
 
 ## Next Steps
 
-1. Move to **16-interview-notes-and-cheatsheets** for synthesis
-2. Learn about observability platforms (Datadog, New Relic, Splunk)
-3. Study alerting and notification rules
-4. Explore log aggregation (ELK, Loki)
-5. Learn about SLIs, SLOs, and error budgets
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **16-interview-notes-and-cheatsheets** for final review
 
 ## Additional Resources
 
-- Observability: https://www.oreilly.com/library/view/observability-engineering/
-- ELK Stack: https://www.elastic.co/what-is/elk-stack
-- Prometheus: https://prometheus.io/
-- Jaeger tracing: https://www.jaegertracing.io/
+- Logs: `man journalctl`, `man tail`
+- Tracing: `man strace`, `man ltrace`
+- Profiling: perf, flamegraph, py-spy
+- Observability: Prometheus, Loki, Jaeger
 

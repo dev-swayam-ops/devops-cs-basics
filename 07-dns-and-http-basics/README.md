@@ -2,156 +2,187 @@
 
 ## What You'll Learn
 
-Master DNS and HTTP concepts:
-- DNS resolution process and hierarchy
-- A, AAAA, CNAME, MX, TXT records
-- DNS caching and performance
-- HTTP protocol versions (1.0, 1.1, 2.0, 3.0)
-- Request/response cycle
-- Status codes and headers
-- HTTPS and certificate basics
+- DNS (Domain Name System) resolution
+- DNS records (A, AAAA, MX, CNAME, TXT)
+- DNS servers and recursive queries
+- HTTP/HTTPS protocol basics
+- HTTP methods (GET, POST, PUT, DELETE)
+- Status codes (2xx, 3xx, 4xx, 5xx)
+- Headers and request/response structure
+- HTTPS and SSL/TLS certificates
 
 ## Prerequisites
 
 - Completed **06-networking-fundamentals**
-- Understanding of IP addresses and domains
-- Basic HTTP usage
+- Basic understanding of IP and ports
+- Familiarity with domain names
 
 ## Key Concepts
 
-### 1. DNS Hierarchy
+### 1. DNS Resolution Process
 ```
-Root (.)
-  |
-TLD (.com, .org, .net)
-  |
-Domain (google.com)
-  |
-Subdomain (mail.google.com)
+User asks: "What is google.com?"
+    ↓
+Recursive resolver (ISP)
+    ↓
+Root nameserver
+    ↓
+TLD nameserver (.com)
+    ↓
+Authoritative nameserver
+    ↓
+Returns: 142.251.32.14
 ```
 
-### 2. DNS Records
-- **A Record**: IPv4 address (example.com -> 93.184.216.34)
-- **AAAA Record**: IPv6 address
-- **CNAME Record**: Alias to another domain
-- **MX Record**: Mail server
-- **TXT Record**: Text metadata, SPF, DKIM
-- **NS Record**: Nameserver
+### 2. DNS Record Types
+- **A**: IPv4 address
+- **AAAA**: IPv6 address
+- **CNAME**: Alias to another domain
+- **MX**: Mail exchange (email server)
+- **TXT**: Text record (DKIM, SPF)
+- **NS**: Nameserver delegation
 
-### 3. HTTP Methods
-- **GET**: Retrieve resource
-- **POST**: Submit data
-- **PUT**: Replace resource
-- **DELETE**: Remove resource
-- **PATCH**: Partial update
-- **HEAD**: Like GET but no body
+### 3. HTTP Request/Response
+```
+Request:
+GET /api/users HTTP/1.1
+Host: example.com
+Accept: application/json
 
-### 4. Status Codes
+Response:
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 42
+
+{"users": [{"id": 1, "name": "Alice"}]}
+```
+
+### 4. HTTP Status Codes
 - **2xx**: Success (200 OK, 201 Created)
 - **3xx**: Redirect (301 Moved, 304 Not Modified)
-- **4xx**: Client error (404 Not Found, 401 Unauthorized)
+- **4xx**: Client error (400 Bad, 404 Not Found)
 - **5xx**: Server error (500 Internal, 503 Service Unavailable)
 
-## Hands-on Lab: DNS and HTTP
+### 5. HTTPS/TLS
+- **Port 443**: Encrypted HTTP
+- **Certificate**: Proves domain ownership
+- **Encryption**: HTTPS = HTTP + TLS
 
-### Lab Steps
+## Hands-on Lab: DNS and HTTP Testing
+
+### Lab Overview
+Query DNS records and test HTTP requests.
+
+### Lab Commands
 
 ```bash
-# 1. DNS lookup
+# 1. Simple DNS lookup
 nslookup google.com
-dig google.com
-dig google.com +short
 
-# 2. Query specific DNS record
+# Expected:
+# Name: google.com
+# Address: 142.251.32.14
+
+# 2. Query specific DNS server
+nslookup google.com 8.8.8.8
+
+# Expected: (same or different, tests resolver)
+
+# 3. Query A record
 dig google.com A
-dig google.com AAAA
+
+# Expected:
+# google.com. 300 IN A 142.251.32.14
+
+# 4. Query MX record
 dig google.com MX
-dig google.com TXT
 
-# 3. Reverse DNS lookup
-nslookup 8.8.8.8
-dig -x 8.8.8.8
+# Expected:
+# google.com. 300 IN MX 10 smtp.google.com.
 
-# 4. Trace DNS resolution path
-dig google.com +trace
+# 5. Query all records
+dig google.com ANY
 
-# 5. Test DNS performance
-time dig google.com
+# Expected: (A, AAAA, MX, NS, etc)
 
-# 6. Check local DNS cache
-systemctl status systemd-resolved
-resolvectl query google.com
+# 6. Check DNS propagation
+dig example.com +short
 
-# 7. Make HTTP request
-curl http://example.com
-curl -v http://example.com
+# Expected: 93.184.216.34
 
-# 8. Check HTTP headers
-curl -i http://example.com
-curl -I http://example.com
+# 7. Test HTTP request
+curl -I https://example.com
 
-# 9. POST request
-curl -X POST -d "data=value" http://httpbin.org/post
+# Expected:
+# HTTP/1.1 200 OK
+# Content-Type: text/html
+# Content-Length: 1256
 
-# 10. Follow redirects
-curl -L http://example.com
+# 8. Get full response
+curl -s https://example.com | head -20
+
+# Expected: (HTML page)
+
+# 9. Post request
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"name":"test"}' https://httpbin.org/post
+
+# Expected: (echoed data)
+
+# 10. Check certificate
+openssl s_client -connect google.com:443
+
+# Expected: (certificate details, issuer, expiry)
 ```
 
 ## Validation
 
-Verify your DNS/HTTP knowledge:
-
 ```bash
-# Can you resolve DNS?
-dig google.com +short && echo "✓ DNS resolution works"
+# Can you query DNS?
+nslookup google.com && echo "✓ DNS works"
 
-# Can you query record types?
-dig google.com MX && echo "✓ DNS records visible"
+# Understand A records?
+dig google.com A && echo "✓ A records shown"
 
-# Can you check HTTP?
-curl -I http://example.com && echo "✓ HTTP request works"
+# Test HTTP?
+curl -I https://example.com && echo "✓ HTTP works"
 
-# Can you understand status codes?
-echo "✓ Status code concepts understood"
+# Know status codes?
+echo "✓ Status codes understood"
 ```
 
 ## Cleanup
 
-```bash
-# No cleanup needed
-echo "✓ Lab complete"
-```
+No cleanup needed (read-only commands).
 
 ## Common Mistakes
 
-1. **DNS caching**: Local DNS cache can hide changes
-2. **CNAME at root**: Can't have CNAME at domain root
-3. **HTTP vs HTTPS**: Not the same, HTTPS is encrypted
-4. **Status codes**: 3xx means redirect, not success
-5. **DNS TTL**: Lower TTL for flexibility, higher for performance
+1. **DNS vs IP**: DNS is name resolution, IP is address
+2. **Port 80 vs 443**: 80 is HTTP, 443 is HTTPS
+3. **HTTP methods**: GET is read, POST is write
+4. **Status codes**: 3xx and 4xx are different (redirect vs error)
+5. **Certificate validation**: HTTPS needs valid certificate
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| DNS not resolving | Check: /etc/resolv.conf, DNS server alive, flush cache |
-| Slow DNS | Use: public DNS (8.8.8.8), check TTL, reduce lookups |
-| HTTP 404 | Check: URL correct, page exists, check logs |
-| Certificate error | Check: HTTPS enabled, cert valid, CA trusted |
-| DNS propagation | Wait: DNS changes take time (TTL), clear cache |
+| DNS not resolving | Check: nslookup, try different server (8.8.8.8) |
+| Slow DNS | Try: faster resolver (Cloudflare 1.1.1.1) |
+| HTTP timeout | Check: connectivity (ping), server status |
+| Certificate error | Verify: domain name, certificate validity |
+| Wrong IP | Check: A record, CNAME target |
 
 ## Next Steps
 
-1. Move to **08-linux-kernel-basics** for kernel networking
-2. Learn about Load Balancers and reverse proxies
-3. Study REST API design
-4. Explore CDN and caching strategies
-5. Learn about DNSSEC
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **08-linux-kernel-basics** after completion
 
 ## Additional Resources
 
-- DNS: `man dig`, `man nslookup`
-- HTTP: https://tools.ietf.org/html/rfc7231
-- HTTP status codes: https://httpwg.org/
-- HTTPS: https://www.ssl.com/article/
+- DNS: `man nslookup`, `man dig`, `man host`
+- HTTP: `man curl`, `man wget`
+- Certificates: `man openssl`, `man s_client`
 

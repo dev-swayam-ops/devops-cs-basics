@@ -1,297 +1,137 @@
-# 02 - Process Management: Cheatsheet
+# 02 - Process Management Cheatsheet
 
-## Essential Commands
+## Starting and Stopping Processes
 
 | Command | Purpose | Example |
 |---------|---------|---------|
-| `ps aux` | List all processes with details | `ps aux \| grep bash` |
-| `ps -ef` | List processes in tree format | `ps -ef --forest` |
-| `ps -p PID` | Show specific process | `ps -p $$` |
-| `pstree` | Show process hierarchy | `pstree -p` |
-| `pgrep name` | Find PID by process name | `pgrep bash` |
-| `pgrep -a name` | Find PID with command line | `pgrep -a bash` |
-| `jobs` | List background/suspended jobs | `jobs -l` |
-| `bg` | Resume suspended job in background | `bg %1` |
-| `fg` | Bring background job to foreground | `fg %1` |
-| `kill PID` | Terminate process (SIGTERM) | `kill 1234` |
-| `kill -9 PID` | Force kill process (SIGKILL) | `kill -9 1234` |
-| `kill -l` | List all available signals | `kill -l` |
-| `killall name` | Kill all processes by name | `killall sleep` |
-| `top` | Real-time process monitoring | `top` |
-| `htop` | Enhanced process viewer | `htop` |
-| `nice -n priority cmd` | Run command with priority | `nice -n 10 ./script.sh` |
-| `renice priority -p PID` | Change process priority | `renice 5 -p 1234` |
-| `nohup cmd` | Run command immune to hangups | `nohup ./long_job.sh &` |
-| `disown` | Remove job from shell | `disown %1` |
-| `wait` | Wait for process to finish | `wait $!` |
-| `trap` | Handle signals in scripts | `trap 'cleanup' EXIT` |
-| `cat /proc/[PID]/status` | Process status details | `cat /proc/$$/status` |
-| `cat /proc/[PID]/cmdline` | Process command line | `cat /proc/1234/cmdline` |
+| `command &` | Start process in background | `sleep 100 &` |
+| `Ctrl+Z` | Suspend foreground process | Suspends current process |
+| `bg %1` | Resume suspended job in background | Job 1 continues in background |
+| `fg %1` | Bring background job to foreground | Job 1 becomes foreground |
+| `jobs -l` | List background jobs with PIDs | Shows: [1]+ 2345 Running sleep 100 |
 
----
+## Sending Signals
 
-## Process States
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `kill -TERM [PID]` | Graceful termination (default) | `kill -TERM 2345` |
+| `kill -9 [PID]` | Force kill (SIGKILL) | `kill -9 2345` |
+| `kill -STOP [PID]` | Suspend process | `kill -STOP 2345` |
+| `kill -CONT [PID]` | Resume process | `kill -CONT 2345` |
+| `kill -0 [PID]` | Test if process exists | Returns 0 if exists |
 
-```
-R (Running)      = Currently executing
-S (Sleeping)     = Waiting for I/O or event
-D (Disk Sleep)   = Uninterruptible (I/O wait)
-Z (Zombie)       = Terminated, parent hasn't reaped
-T (Stopped)      = Suspended (Ctrl+Z)
-W (Paging)       = Swapped out pages
-X (Dead)         = Process is dead
-< (High Priority) = Has high priority
-N (Low Priority)  = Has low priority
-+ (Foreground)    = Running in foreground
-l (Multithreaded) = Process has threads
-s (Session Leader)= Process is session leader
-```
+## Finding Processes
 
----
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ps aux` | List all processes | Shows all with details |
+| `ps -ef` | Alternative format | Same as ps aux |
+| `ps -fp [PID]` | Show specific PID with details | `ps -fp 2345` |
+| `pgrep [name]` | Find PIDs by name | `pgrep sleep` returns 2345 |
+| `pidof [name]` | Find PID of program | `pidof bash` |
+| `pkill [name]` | Kill by name | `pkill sleep` kills all sleep processes |
+| `killall [name]` | Kill all by name | `killall sleep` |
 
-## Signals Reference
+## Process Hierarchy and Details
 
-| Signal | Number | Default Action | Purpose |
-|--------|--------|-----------------|---------|
-| SIGHUP | 1 | Terminate | Terminal disconnected |
-| SIGINT | 2 | Terminate | Ctrl+C |
-| SIGQUIT | 3 | Core Dump | Ctrl+\\ |
-| SIGILL | 4 | Core Dump | Illegal instruction |
-| SIGTRAP | 5 | Core Dump | Debugger trap |
-| SIGABRT | 6 | Core Dump | Abort signal |
-| SIGBUS | 7 | Core Dump | Bus error |
-| SIGFPE | 8 | Core Dump | Floating point error |
-| SIGKILL | 9 | **Cannot catch** | Force kill |
-| SIGUSR1 | 10 | Terminate | User-defined signal 1 |
-| SIGUSR2 | 12 | Terminate | User-defined signal 2 |
-| SIGPIPE | 13 | Terminate | Broken pipe |
-| SIGALRM | 14 | Terminate | Alarm clock |
-| SIGTERM | 15 | Terminate | Graceful termination |
-| SIGSTOP | 19 | **Cannot catch** | Stop process |
-| SIGCONT | 18 | Continue | Resume process |
-| SIGCHLD | 17 | Ignore | Child process ended |
-| SIGTSTP | 20 | Stop | Ctrl+Z |
-| SIGTTIN | 21 | Stop | Background read |
-| SIGTTOU | 22 | Stop | Background write |
-
----
-
-## Process Creation Flow
-
-```
-Program on Disk (Executable)
-        ↓
-    fork()
-        ↓
-Child Process (Copy of Parent)
-        ↓
-    exec()
-        ↓
-New Program in Memory (Process)
-        ↓
-Process Running
-
-Example in Shell:
-ls -la → shell fork()s → child does exec(/bin/ls)
-```
-
----
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ps -o pid,ppid,user,cmd` | Custom columns | Shows parent-child |
+| `pstree -p` | Process tree with PIDs | Visual hierarchy |
+| `pstree -p [PID]` | Show subtree | `pstree -p 2345` |
+| `ps -o pid,stat,cmd` | Show process state | State: R, S, T, Z, D |
+| `ps -o pid,vsz,rss,cmd` | Show memory usage | Virtual and resident memory |
 
 ## Job Control
 
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `jobs` | List current jobs | Shows: [1]+ Running |
+| `jobs -l` | List with PIDs | Shows: [1]+ 2345 Running |
+| `bg %1` | Resume in background | Continue suspended job |
+| `fg %1` | Bring to foreground | Make background job active |
+| `wait [PID]` | Wait for process to finish | Blocks until done |
+
+## Process States Quick Reference
+
+| State | Meaning | Symbol |
+|-------|---------|--------|
+| Running | Executing or ready to execute | R |
+| Sleeping | Waiting for event (normal) | S |
+| Disk Sleep | Uninterruptible wait | D |
+| Stopped | Suspended (SIGSTOP) | T |
+| Traced | Under debugger | t |
+| Zombie | Exited, parent not cleaned up | Z |
+
+## Signal Numbers Quick Reference
+
+| Number | Name | Effect | Catchable |
+|--------|------|--------|-----------|
+| 1 | SIGHUP | Hangup | Yes |
+| 2 | SIGINT | Interrupt (Ctrl+C) | Yes |
+| 9 | SIGKILL | Kill (forced) | No |
+| 15 | SIGTERM | Terminate (graceful) | Yes |
+| 18 | SIGCONT | Continue (resume) | Yes |
+| 19 | SIGSTOP | Stop (suspend) | No |
+
+## Environmental Variables for Processes
+
+| Variable | Meaning | Example |
+|----------|---------|---------|
+| `$$` | Current shell PID | `echo $$` returns 2345 |
+| `$!` | Last background PID | `sleep 100 & echo $!` |
+| `$?` | Last command exit code | 0 = success, non-0 = error |
+| `$PPID` | Parent process ID | Parent shell's PID |
+| `$USER` | Current user | `echo $USER` |
+
+## Advanced Commands
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ps aux --sort=-%cpu` | Sort by CPU usage | Highest CPU first |
+| `ps aux --sort=-%mem` | Sort by memory usage | Highest memory first |
+| `ps -eo pid,user,cpu,mem,cmd` | Custom columns | Show specific info |
+| `watch -n 1 'ps aux'` | Monitor processes live | Refresh every 1 second |
+| `top` | Real-time process monitoring | Interactive monitoring |
+| `htop` | Better top UI | More user-friendly |
+
+## Process Lifecycle Diagram
+
+```
+1. fork()    → New process created (copy of parent)
+2. exec()    → Load new program into process
+3. Running   → Process executes
+4. Signal    → Process receives signal
+5. Exit      → Process terminates
+6. wait()    → Parent cleans up child
+```
+
+## Common Process Scenarios
+
+### Scenario 1: Kill Unresponsive Process
 ```bash
-sleep 100
-# Ctrl+Z → [1]+ Stopped
-
-jobs -l
-# [1]+ 1234 Stopped  sleep 100
-
-bg %1
-# [1]+ sleep 100 &
-
-jobs -l
-# [1]+ 1234 Running  sleep 100 &
-
-fg %1
-# sleep 100
-# (Ctrl+Z)
-
-kill %1
-# [1]-  Terminated  sleep 100
+ps aux | grep processname        # Find process
+kill -TERM [PID]                # Try graceful first
+kill -9 [PID]                   # Force if needed
 ```
 
----
-
-## PS Output Columns
-
-```
-USER        = Process owner
-PID         = Process ID
-%CPU        = CPU usage percentage
-%MEM        = Memory usage percentage
-VSZ         = Virtual memory size (KB)
-RSS         = Resident set size (physical memory in KB)
-TTY         = Terminal (? = not attached to terminal)
-STAT        = Process state
-START       = Start time
-TIME        = CPU time used
-COMMAND     = Command that started process
-```
-
----
-
-## Priority and Niceness
-
-```
-Nice Level:  -20 to +19
--20 = Highest priority (most important)
- 0 = Default priority
-+19 = Lowest priority (least important)
-
-Lower number = Higher priority!
-
-# Run with low priority (nicevalue 10)
-nice -n 10 ./my_script.sh
-
-# Change priority of running process
-renice -n 5 -p 1234  # Set to nice value 5
-renice -n 5 -u john  # All processes of user john
-```
-
----
-
-## Common Process Management Patterns
-
+### Scenario 2: Monitor Background Job
 ```bash
-# Run in background
-command &
-
-# Suppress all output
-command > /dev/null 2>&1 &
-
-# Run with no hangup (survives logout)
-nohup command &
-
-# Run multiple commands in sequence
-(cmd1 && cmd2 && cmd3) &
-
-# Run multiple commands in parallel
-(cmd1 &) && (cmd2 &) && (cmd3 &) && wait
-
-# Wait for all background jobs
-cmd1 &
-cmd2 &
-cmd3 &
-wait  # Block until all finish
-
-# Get PID of last background job
-sleep 100 &
-PID=$!
-echo $PID
+command &                        # Start in background
+jobs -l                         # Monitor jobs
+fg %1                          # Check if still running
 ```
 
----
-
-## Process Debugging
-
+### Scenario 3: Create Zombie (for testing)
 ```bash
-# Trace system calls
-strace ./program
-
-# Trace signals
-strace -f ./program  # Follow forks
-
-# Show open files
-lsof -p 1234
-
-# Show network connections
-ss -pt | grep 1234
-
-# CPU and memory trend
-ps aux --sort=-%mem | head -10
-
-# Watch process in real-time
-watch -n 1 'ps aux | grep [process_name]'
-
-# Get exit code of last command
-echo $?
+bash -c 'sleep 1' &            # Parent exits immediately
+ps -o ppid,stat,cmd | grep 1   # Child becomes zombie
 ```
 
----
-
-## Zombie Process Handling
-
-```
-Zombie = Process exited but parent didn't call wait()
-
-Detection:
-ps aux | grep defunct
-ps aux | grep Z
-
-Cleanup:
-kill -9 [PARENT_PID]  # Kill parent
-
-Prevention in Scripts:
-#!/bin/bash
-background_job &
-wait $!  # Wait for child
-```
-
----
-
-## Process Communication (IPC)
-
-```
-Pipes:
-cmd1 | cmd2          # Output of cmd1 → Input of cmd2
-
-File Descriptors:
-0 = stdin
-1 = stdout
-2 = stderr
-
-Redirection:
-cmd > file           # stdout to file
-cmd 2> file          # stderr to file
-cmd &> file          # stdout and stderr
-cmd < file           # stdin from file
-
-Process Substitution:
-cmd <(other_cmd)     # Feed output as input
-cmd >(other_cmd)     # Send output to command
-```
-
----
-
-## Useful One-liners
-
+### Scenario 4: Suspend and Resume
 ```bash
-# Kill all processes matching pattern
-killall -9 pattern
-
-# Kill all processes owned by user
-killall -u username
-
-# Monitor process creation
-watch -n 1 'ps aux | wc -l'
-
-# Find memory hogs
-ps aux --sort=-%mem | head -5
-
-# Find CPU hogs
-ps aux --sort=-%cpu | head -5
-
-# Process count by user
-ps aux | awk '{print $1}' | sort | uniq -c
-
-# Kill process on specific port
-lsof -ti:[PORT] | xargs kill -9
-
-# Wait for process to finish
-wait [PID]
-
-# Graceful shutdown pattern
-kill -TERM [PID] && sleep 5 && kill -KILL [PID]
+sleep 1000                      # Start foreground
+# Type Ctrl+Z
+bg                             # Resume in background
+fg %1                          # Back to foreground
 ```
-
----

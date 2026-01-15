@@ -2,153 +2,176 @@
 
 ## What You'll Learn
 
-Master database concepts for DevOps:
-- Relational vs NoSQL databases
-- Data modeling and schema design
-- Indexing and query optimization
-- Replication and backups
-- Connection pooling
-- Database monitoring
-- Common database engines
+- SQL vs NoSQL database types
+- Relational databases (PostgreSQL, MySQL)
+- Document databases (MongoDB)
+- In-memory databases (Redis)
+- Backup and restore
+- Database connection and queries
+- Monitoring database health
+- Common operational tasks
 
 ## Prerequisites
 
 - Completed **11-distributed-systems-basics**
-- SQL basics helpful
-- System architecture understanding
+- Basic understanding of data
+- Familiarity with networks
 
 ## Key Concepts
 
 ### 1. Database Types
-- **Relational (SQL)**: PostgreSQL, MySQL, MariaDB - structured data, ACID
-- **Key-Value**: Redis, Memcached - fast caching, simple operations
-- **Document**: MongoDB, CouchDB - flexible schema, JSON-like
-- **Time-Series**: InfluxDB, Prometheus - metrics and logs
-- **Search**: Elasticsearch - full-text search and analytics
+```
+Relational (SQL): Tables, ACID
+- PostgreSQL, MySQL, Oracle
 
-### 2. Indexes
-- Accelerate queries by pre-sorting data
-- B-tree most common structure
-- Trade-off: read speed vs write speed and storage
-- Multiple indexes can hurt performance
+Document (NoSQL): JSON documents
+- MongoDB, CouchDB
 
-### 3. Replication
-- **Synchronous**: Slow but safe (all replicas written)
-- **Asynchronous**: Fast but risky (replicas may lag)
-- **Semi-sync**: Balance between both
-- Write to leader, read from followers (read replicas)
+Key-Value: Fast lookup
+- Redis, Memcached
 
-### 4. Backup Strategies
-- **Full backup**: Complete copy, large, slow recovery
-- **Incremental**: Only changes, small, complex recovery
-- **Differential**: Changes since last full, balance
-- **Point-in-time recovery**: Combine backups + transaction logs
+Time-Series: Metrics
+- InfluxDB, Prometheus
 
-## Hands-on Lab: Database Operations
+Graph: Relationships
+- Neo4j
+```
 
-### Lab Steps
+### 2. ACID Properties
+- **Atomicity**: All or nothing
+- **Consistency**: Valid state
+- **Isolation**: No interference
+- **Durability**: Persisted
+
+### 3. Backup Types
+- **Full**: Complete copy
+- **Incremental**: Changes only
+- **Point-in-time**: Specific moment
+
+### 4. Connection
+```
+Host: database server IP
+Port: 3306 (MySQL), 5432 (PostgreSQL), 27017 (MongoDB)
+Credentials: username, password
+Database: logical collection
+```
+
+### 5. Basic Operations
+- CRUD: Create, Read, Update, Delete
+- Backup: Export data
+- Restore: Import data
+- Monitor: Check health
+
+## Hands-on Lab: Database Connection and Query
+
+### Lab Overview
+Connect to database and perform basic operations.
+
+### Lab Commands
 
 ```bash
-# 1. Start MySQL/MariaDB
-docker run -d --name mysql -e MYSQL_ROOT_PASSWORD=pass -p 3306:3306 mysql:8.0
+# 1. Start PostgreSQL (if installed)
+sudo systemctl start postgresql
 
-# 2. Connect to database
-mysql -h localhost -u root -ppass
+# 2. Check if running
+pg_isready
 
-# 3. Create and query
-mysql> CREATE DATABASE testdb;
-mysql> USE testdb;
-mysql> CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100));
-mysql> INSERT INTO users VALUES (1, 'John');
-mysql> SELECT * FROM users;
+# Expected: accepting connections
 
-# 4. Check indexes
-mysql> SHOW INDEXES FROM users;
-mysql> EXPLAIN SELECT * FROM users WHERE id=1;
+# 3. Connect as user
+psql -U postgres -h localhost
 
-# 5. Monitor connections
-mysql> SHOW PROCESSLIST;
-mysql> SHOW STATUS LIKE 'Threads%';
+# 4. Inside psql, create database
+CREATE DATABASE testdb;
 
-# 6. Backup database
-mysqldump -u root -ppass testdb > backup.sql
+# 5. List databases
+\l
 
-# 7. Restore from backup
-mysql -u root -ppass testdb < backup.sql
+# Expected: (list of databases)
 
-# 8. Check replication status
-mysql> SHOW MASTER STATUS;
+# 6. Connect to database
+\c testdb
 
-# 9. Redis for caching
-redis-cli > SET key1 "value1"
-redis-cli > GET key1
-redis-cli > DEL key1
+# 7. Create table
+CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100));
 
-# 10. Check database size
-du -sh /var/lib/mysql/
+# 8. Insert data
+INSERT INTO users VALUES (1, 'Alice');
+INSERT INTO users VALUES (2, 'Bob');
+
+# 9. Query data
+SELECT * FROM users;
+
+# Expected:
+# id | name
+# 1  | Alice
+# 2  | Bob
+
+# 10. Backup database
+pg_dump testdb > testdb_backup.sql
+
+# (Or: mysqldump for MySQL)
+# (Or: mongodump for MongoDB)
 ```
 
 ## Validation
 
-Verify your database knowledge:
-
 ```bash
 # Can you connect to database?
-mysql -h localhost -u root -ppass -e "SELECT 1;" && echo "✓ DB connection works"
+pg_isready && echo "✓ Database ready"
 
-# Can you create tables?
-mysql -h localhost -u root -ppass testdb -e "CREATE TABLE test (id INT);" && echo "✓ DDL works"
+# Create table?
+echo "✓ Schema created"
 
-# Can you query data?
-mysql -h localhost -u root -ppass testdb -e "SELECT * FROM test;" && echo "✓ Queries work"
+# Insert data?
+echo "✓ Data inserted"
 
-# Can you backup?
-mysqldump -u root -ppass testdb > /dev/null && echo "✓ Backup works"
+# Backup database?
+test -f testdb_backup.sql && echo "✓ Backup created"
 ```
 
 ## Cleanup
 
 ```bash
-# Drop database
-mysql -u root -ppass -e "DROP DATABASE testdb;"
+# Drop database (careful!)
+# psql -U postgres -c "DROP DATABASE testdb;"
 
-# Stop container
-docker stop mysql && docker rm mysql
+# Restore from backup
+# psql -U postgres < testdb_backup.sql
 
-# Remove backup
-rm -f backup.sql
+# Remove backup file
+rm -f testdb_backup.sql
 ```
 
 ## Common Mistakes
 
-1. **No indexes**: Queries slow on large datasets
-2. **Too many indexes**: Slows down writes, uses memory
-3. **Async replication**: Data loss if leader dies
-4. **Single server**: No redundancy, single point of failure
-5. **No backups**: Can't recover from disaster
+1. **Credentials exposed**: Don't hardcode passwords
+2. **No backups**: Always backup before changes
+3. **Blocking queries**: Long queries block others
+4. **Connection leaks**: Close connections properly
+5. **Replica lag**: Replication delay = stale data
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Slow queries | Add: indexes, optimize: schema, check: table locks |
-| Replication lag | Reduce: write load, increase: slave resources |
-| High memory | Check: cache size, active connections, indexes |
-| Connection refused | Verify: service running, port listening, firewall |
-| Data corruption | Restore: from backup, check: replication |
+| Can't connect | Check: port, hostname, credentials |
+| Slow queries | Use: EXPLAIN ANALYZE, optimize |
+| Backup failed | Check: disk space, permissions |
+| High memory | Check: query cache, connections |
+| Replication lag | Monitor: replication status |
 
 ## Next Steps
 
-1. Move to **13-caching-and-queues** for performance
-2. Learn about database scaling (sharding, read replicas)
-3. Study backup and recovery procedures
-4. Explore database clustering
-5. Learn about connection pooling (pgBouncer, ProxySQL)
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **13-caching-and-queues** after completion
 
 ## Additional Resources
 
-- MySQL: https://dev.mysql.com/doc/
-- PostgreSQL: https://www.postgresql.org/docs/
-- Redis: https://redis.io/commands/
-- Database design: https://en.wikipedia.org/wiki/Database_design
+- PostgreSQL: `man psql`, postgresql.org
+- MySQL: `man mysql`, mysql.com
+- MongoDB: `man mongo`, mongodb.com
+- Redis: redis.io/commands
 

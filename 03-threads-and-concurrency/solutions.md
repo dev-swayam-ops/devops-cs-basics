@@ -1,357 +1,419 @@
-# 03 - Threads and Concurrency: Solutions
+# 03 - Threads and Concurrency Solutions
 
-## Solution 1: Understand Threading Basics
+## Easy Solutions (1-5)
 
-### Answers
+### Solution 1: Understand Race Condition
 
-**What is a thread?**
-A thread is the smallest unit of execution within a process. It shares the same memory and resources as other threads in the same process but has its own stack and execution state.
-
-**How do threads differ from processes?**
-- **Processes**: Heavy-weight, separate memory space, slower creation, inter-process communication required
-- **Threads**: Light-weight, shared memory space, faster creation, easy communication through shared memory
-
-**What is multithreading?**
-Running multiple threads concurrently within the same process to perform multiple tasks simultaneously.
-
-**3 Advantages**:
-1. Lighter weight than processes (less resource consumption)
-2. Faster context switching
-3. Easier inter-thread communication through shared memory
-
----
-
-## Solution 2: Identify Threads
-
-### Commands and Output
-
+**Script**:
 ```bash
-ps -eLf | grep bash
-# Shows threads (LWP column = Light Weight Process)
-
-ps -eLf | grep systemd
-# Shows systemd with multiple threads
-
-cat /proc/[PID]/status | grep Threads
-# Output example: Threads:  4
-```
-
-### Answers
-
-1. **Bash threads**: Usually 1 (single-threaded)
-2. **Systemd threads**: Multiple (5-20 depending on system)
-3. **Command to show count**: `cat /proc/[PID]/status | grep Threads`
-
----
-
-## Solution 3: Race Condition Scenario
-
-### The Problem
-
-```bash
-counter=0
-for i in {1..100}; do
-    ((counter++)) &  # Run in background
+cat > /tmp/race_test.sh << 'EOF'
+count=0
+for i in {1..1000}; do
+  count=$((count + 1))
 done
+echo $count
+EOF
+
+# Run two concurrently
+bash /tmp/race_test.sh &
+bash /tmp/race_test.sh &
 wait
-echo $counter  # Output might be 87 instead of 100
 ```
 
-### Answers
+**Expected Output**:
+```
+1000
+1000
+```
 
-1. **Why less than 100**: Each `((counter++))` reads the current value, increments it, and writes it back. If multiple threads do this simultaneously without locks, updates are lost.
+**Explanation**:
+- Each bash runs separately (different memory space)
+- No race condition between separate processes
+- Same script different times shows same result (1000)
+- True race condition needs shared memory (threads/processes sharing data)
 
-2. **Race condition**: Multiple threads/processes accessing and modifying the same resource without synchronization, leading to unpredictable results.
+---
 
-3. **How it relates**: Each `&` creates a shell subprocess (not threads, but same concurrency problem).
+### Solution 2: Use File Locking
 
-### Thread-Safe Solution
-
+**Script**:
 ```bash
-counter=0
-counter_lock="/tmp/counter.lock"
+COUNTER="/tmp/count.txt"
+echo "0" > $COUNTER
 
-safe_increment() {
-    (
-        flock -x 100
-        counter=$((counter + 1))
-        echo $counter > /tmp/counter_value
-    ) 100>$counter_lock
+increment_safe() {
+  exec 200>"$COUNTER.lock"
+  flock 200
+  val=$(cat $COUNTER)
+  val=$((val + 1))
+  echo $val > $COUNTER
+  flock -u 200
+  exec 200>&-
 }
 
-for i in {1..100}; do
-    safe_increment &
+for i in {1..5}; do
+  increment_safe &
 done
 wait
-echo "Final: $(cat /tmp/counter_value)"  # Always 100
+echo "Final: $(cat $COUNTER)"
 ```
+
+**Expected Output**:
+```
+Final: 5
+```
+
+**Explanation**:
+- `flock 200` acquires lock on file descriptor 200
+- Only one process increments at a time
+- Result is consistent (always 5)
+- Without lock, result varies (1-5)
 
 ---
 
-## Solution 4: Thread Safety
+### Solution 3: Compare Thread vs Process
 
-### Answers
-
-**What is thread safety?**
-Code is thread-safe if it can be called by multiple threads simultaneously without data corruption or race conditions. Shared resources must be protected with locks.
-
-**Why NOT thread-safe:**
+**Commands**:
 ```bash
-# Problem:
-value=$(cat $FILE)      # Thread A reads: 5
-# Context switch
-sleep 0.1               # Simulates processing
-                        # Thread B reads: 5, writes: 6
-# Back to Thread A
-echo $((value + 1)) > $FILE  # Writes: 6 (data lost!)
+# Show current shell
+ps -eLf | grep "^$(whoami)" | grep bash | head -1
+
+# Thread count in current shell
+grep Threads /proc/$$/status
+
+# Start background bash
+bash &
+PID=$!
+
+# Check its threads
+grep Threads /proc/$PID/status
+
+# Check memory
+ps -o pid,vsz,rss,cmd | grep bash
 ```
 
-**How to fix:**
-```bash
-# Use atomic operations or locks
-flock -x 100
-value=$(cat $FILE)
-echo $((value + 1)) > $FILE
-flock -u 100
+**Expected Output**:
+```
+user 2345 2345 Ss bash
+Threads: 1
+
+Threads: 1
+
+PID VSZ RSS CMD
+2345 4234 2340 bash
+2346 4234 1560 bash
 ```
 
-**Mutex/Lock:**
-A mechanism that ensures only one thread can access a resource at a time. `flock` is Linux's file-based lock.
+**Explanation**:
+- Each bash is separate process
+- Each has own memory (VSZ virtual, RSS resident)
+- Threads within same process share memory
+- Process creation is heavier than thread creation
 
 ---
 
-## Solution 5: Mutual Exclusion
+### Solution 4: Observe Lock Blocking
 
-### Expected Output
-
+**Script**:
 ```bash
-# Without lock:
-# Final value: 3 (expected: 10)
+LOCK="/tmp/test.lock"
 
-# With flock:
-# Final value: 10 (correct!)
-```
-
-### How flock Works
-
-```bash
-exec 200> $LOCK          # Open file descriptor 200
-flock 200                # Acquire exclusive lock
-# Critical section (only one thread here)
-flock -u 200             # Release lock
-```
-
----
-
-## Solution 6: Deadlock
-
-### What Happens
-
-The script will hang indefinitely. Thread 1 holds lock A and waits for B; Thread 2 holds lock B and waits for A. Neither can proceed.
-
-### Answers
-
-**What is a deadlock?**
-Two or more threads waiting for locks that the other holds, causing them to wait forever.
-
-**Prevention strategies:**
-1. **Lock ordering**: Always acquire locks in same order
-2. **Timeouts**: Use `flock -w timeout`
-3. **Lock hierarchies**: Establish rules for lock acquisition
-4. **Resource pooling**: Avoid circular dependencies
-
-### Fixed Version
-
-```bash
-# Both threads acquire locks in same order (A then B)
-(
-    exec 300>/tmp/resource_a
-    exec 301>/tmp/resource_b
-    flock 300
-    flock 301
-    # Safe to use both resources
-) &
-```
-
----
-
-## Solution 7: Thread Pool
-
-### Answers
-
-**What is a thread pool?**
-A fixed number of pre-created threads that repeatedly take tasks from a queue and execute them. Avoids overhead of creating new threads for each task.
-
-**Workers**: 4 (POOL_SIZE=4)
-
-**Performance benefit**:
-- Threads are reused (no creation/destruction overhead)
-- Limits concurrent execution
-- Better resource utilization
-
-### Improved Version with Better Performance
-
-```bash
-# Reduce semaphore delays for better throughput
-worker() {
-    timeout 30 cat < $WORK_QUEUE | while read task; do
-        echo "Processing: $task" >> $RESULTS
-        sleep 0.5
-    done
+# Terminal 1: Hold lock for 5 seconds
+hold_lock() {
+  echo "Acquiring lock..."
+  flock -x 200
+  echo "Got lock at $(date +%s)"
+  sleep 5
+  echo "Releasing lock at $(date +%s)"
 }
+
+# Open lock and keep it
+exec 200>"$LOCK"
+hold_lock
+
+# Terminal 2: Try to acquire (in another terminal)
+# flock -x 200 >> /tmp/wait.log
+# This will block until lock is released
+```
+
+**Explanation**:
+- `flock -x 200` = exclusive lock (X lock)
+- Second process blocks waiting for lock
+- As soon as first releases, second acquires
+- Time delta shows waiting duration
+
+---
+
+### Solution 5: Demonstrate Critical Section
+
+**Without Lock** (inconsistent):
+```bash
+COUNT="/tmp/count.txt"
+echo "0" > $COUNT
+
+bad_increment() {
+  for i in {1..10}; do
+    val=$(cat $COUNT)
+    val=$((val + 1))
+    echo $val > $COUNT
+  done
+}
+
+# Run 5 concurrent (result varies: 10-50)
+for i in {1..5}; do bad_increment & done
+wait
+echo "Without lock: $(cat $COUNT)"
+```
+
+**With Lock** (consistent):
+```bash
+good_increment() {
+  for i in {1..10}; do
+    flock -x 200
+    val=$(cat $COUNT)
+    val=$((val + 1))
+    echo $val > $COUNT
+    flock -u 200
+  done
+}
+
+echo "0" > $COUNT
+for i in {1..5}; do good_increment & done
+wait
+echo "With lock: $(cat $COUNT)"
+```
+
+**Expected Output**:
+```
+Without lock: 23      # Varies each run
+With lock: 50         # Always consistent
 ```
 
 ---
 
-## Solution 8: Semaphore Pattern
+## Medium Solutions (6-10)
 
-### Answers
+### Solution 6: Deadlock Scenario
 
-**What is a semaphore?**
-A counter that limits access to a resource. When counter > 0, a thread can acquire it (counter--). When 0, threads must wait. Releasing increments counter.
-
-**How it limits access:**
-`MAX_PERMITS=2` ensures only 2 tasks access the resource simultaneously.
-
-**Why useful:**
-- Control resource pool access
-- Prevent resource exhaustion
-- Rate limiting
-
-### Better Implementation (Bash doesn't have true semaphores)
-
+**Script**:
 ```bash
-# Use /tmp directory for atomic operations
-SEMAPHORE_DIR="/tmp/sems"
-mkdir -p $SEMAPHORE_DIR
+cat > /tmp/deadlock.sh << 'EOF'
+#!/bin/bash
+if [ "$1" = "A" ]; then
+  exec 201>/tmp/lock1
+  echo "A: acquiring lock1"
+  flock -x 201
+  sleep 2
+  echo "A: trying lock2..."
+  exec 202>/tmp/lock2
+  flock -x 202  # Waits forever - B has it
+  echo "A: got lock2"
+else
+  exec 202>/tmp/lock2
+  echo "B: acquiring lock2"
+  flock -x 202
+  sleep 2
+  echo "B: trying lock1..."
+  exec 201>/tmp/lock1
+  flock -x 201  # Waits forever - A has it
+  echo "B: got lock1"
+fi
+EOF
+
+bash /tmp/deadlock.sh A &
+bash /tmp/deadlock.sh B &
+# Both hang (deadlock!)
+```
+
+**Explanation**:
+- Process A: lock1 → wait for lock2 (held by B)
+- Process B: lock2 → wait for lock1 (held by A)
+- Circular dependency = deadlock
+- Neither can progress
+
+---
+
+### Solution 7: Lock Ordering Prevention
+
+**Fixed Script**:
+```bash
+cat > /tmp/safe.sh << 'EOF'
+#!/bin/bash
+# Both always acquire lock1 THEN lock2
+exec 201>/tmp/lock1
+exec 202>/tmp/lock2
+
+echo "Process $1: acquiring lock1"
+flock -x 201
+echo "Process $1: acquired lock1"
+sleep 1
+
+echo "Process $1: acquiring lock2"
+flock -x 202
+echo "Process $1: acquired lock2"
+sleep 1
+
+echo "Process $1: releasing locks"
+flock -u 202
+flock -u 201
+EOF
+
+bash /tmp/safe.sh A &
+bash /tmp/safe.sh B &
+wait
+# Both complete without hang
+```
+
+**Explanation**:
+- Consistent ordering prevents cycles
+- Both processes acquire lock1 first
+- One gets lock1, waits for lock2, other waiting for lock1
+- When first releases lock1, second can proceed
+- No circular wait = no deadlock
+
+---
+
+### Solution 8: Semaphore Simulation
+
+**Script**:
+```bash
+SEMAPHORE="/tmp/sem.count"
+echo "3" > $SEMAPHORE
 
 acquire() {
-    while ! mkdir "$SEMAPHORE_DIR/permit_$1" 2>/dev/null; do
-        sleep 0.1
-    done
+  while true; do
+    exec 200>"$SEMAPHORE.lock"
+    flock -x 200
+    count=$(cat $SEMAPHORE)
+    if [ $count -gt 0 ]; then
+      echo $((count - 1)) > $SEMAPHORE
+      break
+    fi
+    flock -u 200
+    sleep 0.1
+  done
 }
 
 release() {
-    rmdir "$SEMAPHORE_DIR/permit_$1" 2>/dev/null
-}
-```
-
----
-
-## Solution 9: Producer-Consumer
-
-### Expected Behavior
-
-```
-Produced: Item-1
-Consumed: Item-1
-Produced: Item-2
-Produced: Item-3
-Consumed: Item-2
-[...]
-```
-
-### Issues with Current Implementation
-
-1. Not truly thread-safe (multiple writers/readers to same file)
-2. Race conditions possible when checking/modifying buffer
-3. No proper synchronization primitives
-
-### Production Implementation (Would use pthread in C)
-
-```c
-// Pseudo-code - actual implementation uses condition variables
-while (true) {
-    lock(buffer);
-    while (buffer.size() >= MAX_SIZE) {
-        wait(not_full);  // Wait and release lock
-    }
-    buffer.push(item);
-    signal(not_empty);
-    unlock(buffer);
-}
-```
-
----
-
-## Solution 10: Concurrency Issues in Real Code
-
-### Thread Safety Issues
-
-1. **LOG file**: Multiple threads writing simultaneously → corrupted log
-2. **request_count**: Race condition reading/writing counter
-3. **No synchronization**: Requests interfere with each other
-
-### Thread-Safe Rewrite
-
-```bash
-#!/bin/bash
-LOG="/tmp/requests.log"
-COUNT_FILE="/tmp/request_count"
-LOCK_DIR="/tmp/request_lock"
-
-handle_request() {
-    request_id=$1
-    
-    # Acquire lock
-    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
-        sleep 0.01
-    done
-    
-    # Critical section (thread-safe)
-    echo "Request-$request_id starting" >> $LOG
-    count=$(($(cat $COUNT_FILE 2>/dev/null || echo 0) + 1))
-    echo $count > $COUNT_FILE
-    sleep 1
-    echo "Request-$request_id completed" >> $LOG
-    
-    # Release lock
-    rmdir "$LOCK_DIR"
+  exec 200>"$SEMAPHORE.lock"
+  flock -x 200
+  count=$(cat $SEMAPHORE)
+  echo $((count + 1)) > $SEMAPHORE
+  flock -u 200
 }
 
-echo "0" > $COUNT_FILE
-for i in {1..10}; do
-    handle_request $i &
+worker() {
+  echo "Worker $1: waiting..."
+  acquire
+  echo "Worker $1: got resource"
+  sleep 2
+  echo "Worker $1: releasing"
+  release
+}
+
+for i in {1..5}; do
+  worker $i &
 done
 wait
-echo "Total: $(cat $COUNT_FILE)"
 ```
 
-### Production Approach
-
-```bash
-# Use proper logging with date timestamps
-log_request() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S.%N') - Request-$1" >> $LOG
-}
-
-# Use atomic operations
-atomic_increment() {
-    flock -x -w 5 100
-    count=$(($(cat $COUNT_FILE || echo 0) + 1))
-    echo $count > $COUNT_FILE
-    flock -u 100
-} 100>$COUNT_FILE.lock
-
-# Add error handling and monitoring
-handle_request_safe() {
-    request_id=$1
-    start_time=$(date +%s%N)
-    
-    log_request "START-$request_id"
-    
-    if ! timeout 30 do_work "$request_id"; then
-        log_request "TIMEOUT-$request_id"
-        return 1
-    fi
-    
-    atomic_increment
-    end_time=$(date +%s%N)
-    duration=$((($end_time - $start_time) / 1000000))
-    echo "Request-$request_id took ${duration}ms" >> /tmp/metrics.log
-    
-    log_request "COMPLETE-$request_id"
-}
-```
+**Explanation**:
+- Semaphore = counter of available resources
+- Acquire: decrement when > 0, else wait
+- Release: increment
+- Only 3 workers run simultaneously
 
 ---
+
+### Solution 9: Reader-Writer Problem
+
+**Script**:
+```bash
+DATA="/tmp/data.txt"
+WRITE_LOCK="/tmp/write.lock"
+
+read_data() {
+  # Readers don't lock (multiple readers OK)
+  echo "Reader $1: reading..."
+  sleep 1
+  cat $DATA
+  echo "Reader $1: done"
+}
+
+write_data() {
+  # Writer gets exclusive lock
+  exec 200>"$WRITE_LOCK"
+  echo "Writer: waiting for lock..."
+  flock -x 200
+  echo "Writer: updating data..."
+  echo "Updated at $(date)" >> $DATA
+  sleep 2
+  flock -u 200
+  echo "Writer: done"
+}
+
+# Start readers (non-blocking)
+read_data 1 &
+read_data 2 &
+
+# Writer blocks until readers done (simulated with lock)
+write_data &
+
+read_data 3 &
+wait
+```
+
+**Explanation**:
+- Multiple readers can access data simultaneously
+- Writer needs exclusive access
+- In production, use RWLock (read-write lock)
+
+---
+
+### Solution 10: Measure Lock Contention
+
+**Script**:
+```bash
+# Without lock
+time bash -c '
+count=0
+for i in {1..1000}; do
+  count=$((count + 1))
+done
+'
+
+# With lock
+COUNTER="/tmp/cnt.txt"
+echo "0" > $COUNTER
+
+time bash -c '
+for i in {1..1000}; do
+  flock -x 200 -c "
+    val=\$(cat '$COUNTER')
+    echo \$((val + 1)) > '$COUNTER'
+  "
+done
+' 200>"$COUNTER.lock"
+```
+
+**Expected Output**:
+```
+real  0m0.003s  # Without lock
+real  0m0.250s  # With lock (lock overhead ~80x!)
+```
+
+**Explanation**:
+- Lock overhead is significant
+- Minimize lock time in production
+- Batch operations to reduce lock calls
+- RWLock better for read-heavy workloads
+
+---
+
+## Practice Tips
+
+1. Always test race conditions multiple times
+2. Use timestamps: `date +%s%N` (nanosecond precision)
+3. Monitor lock files: `lsof | grep lock`
+4. Deadlock: use `timeout 5 cmd` to auto-kill
+5. Remember: always acquire locks in same order

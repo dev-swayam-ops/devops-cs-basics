@@ -2,160 +2,171 @@
 
 ## What You'll Learn
 
-Master memory management concepts:
-- Memory layout and segments (stack, heap, BSS)
+- Memory layout (stack, heap, BSS, data, text)
 - Virtual vs physical memory
 - Page faults and paging
 - Memory allocation and deallocation
-- Memory leaks and debugging
+- Memory metrics (VSZ, RSS, PSS)
 - Performance optimization
-- Memory limits and ulimit
+- Memory limits and resource management
 
 ## Prerequisites
 
 - Completed **03-threads-and-concurrency**
-- Understanding of processes and memory basics
-- Basic understanding of addresses
+- Understanding of memory basics
+- Process and memory relationship
 
 ## Key Concepts
 
 ### 1. Memory Layout
 ```
-High Address  [Command Line & Environment Variables]
-              [Stack] (grows downward)
-              [Unused Memory]
-              [Heap] (grows upward)
-              [BSS Segment] (uninitialized data)
-              [Data Segment] (initialized data)
-Low Address   [Text Segment] (code)
+High Address: [Stack] (grows down, function calls)
+              [Heap] (grows up, dynamic allocation)
+              [BSS] (uninitialized globals)
+Low Address:  [Data] (initialized globals)
+              [Text] (code, read-only)
 ```
 
 ### 2. Virtual vs Physical Memory
-- **Virtual Memory**: Process's view of memory (linear, starting at 0)
-- **Physical Memory**: Actual RAM
-- **Paging**: OS swaps pages to disk to extend RAM
-- **TLB**: Translation Lookaside Buffer (cache for address translation)
+- **Virtual Memory**: Process's view (linear address space from 0)
+- **Physical Memory**: Actual RAM on system
+- **Paging**: OS swaps pages to disk when RAM full
+- **TLB**: Translation Lookaside Buffer (cache of address translations)
 
 ### 3. Memory Metrics
 - **VSZ** (Virtual Set Size): Total virtual memory allocated
-- **RSS** (Resident Set Size): Physical memory currently in RAM
-- **PSS** (Proportional Set Size): Shared memory divided fairly
+- **RSS** (Resident Set Size): Physical memory in RAM (non-shared)
+- **PSS** (Proportional Set Size): Fair share of shared memory
+- **Swap**: Pages on disk (slow access)
 
 ### 4. Page Faults
-- **Minor Fault**: Page in RAM, just need to map it
-- **Major Fault**: Page on disk, need to read from disk (slow!)
+- **Minor Fault**: Page in RAM, just need mapping
+- **Major Fault**: Page on disk, read from disk (slow)
+- Measure with: `cat /proc/[pid]/stat` (field 10, 12)
+- More major faults = worse performance
 
-## Hands-on Lab: Memory Analysis
+## Hands-on Lab: Memory Exploration
 
-### Lab Steps
+### Lab Overview
+Analyze memory usage and understand memory metrics.
+
+### Lab Commands
 
 ```bash
-# 1. Check system memory
+# 1. Check total system memory
 free -h
-free -m
 
 # Expected output:
-#                total        used        free      shared  buff/cache   available
-# Mem:           15Gi       4.2Gi       2.3Gi       256Mi       8.5Gi       10Gi
-# Swap:          2.0Gi          0B       2.0Gi
+#              total used free
+# Mem:         15Gi  4Gi  11Gi
+# Swap:        2.0Gi  0B  2.0Gi
 
-# 2. View memory details
-cat /proc/meminfo
+# 2. Show detailed memory
+cat /proc/meminfo | head -10
 
-# 3. Check process memory usage
-ps aux
-ps -o pid,vsz,rss,cmd
+# Expected: MemTotal, MemFree, MemAvailable, Buffers, Cached
 
-# 4. Monitor specific process
-watch -n 1 'ps -p $$ -o pid,vsz,rss,cmd'
+# 3. Check process memory (current shell)
+ps -o pid,vsz,rss,cmd -p $$
 
-# 5. Allocate memory dynamically
-bash -c 'a=($(seq 1 1000000)); sleep 10'
+# Expected:
+# PID  VSZ     RSS    CMD
+# 2345 4234    2340   bash
 
-# 6. Check memory in another terminal
-ps aux | grep bash
+# 4. Calculate memory percentage
+free | awk 'NR==2 {printf "Used: %.1f%%\n", ($3/$2)*100}'
 
-# 7. View process memory map
-cat /proc/self/maps
+# Expected: Used: 26.7%
 
-# Expected output:
-# 56148d2a2000-56148d2ac000 r-xp 00000000 08:01 1234567 /bin/bash
-# 56148d4ab000-56148d4c5000 rw-p 00009000 08:01 1234567 /bin/bash
-# 7f3a2e000000-7f3a2e1d1000 rw-p 00000000 00:00 0       [heap]
+# 5. Monitor memory in real-time
+watch -n 1 'free -h'
 
-# 8. Check page fault statistics
-cat /proc/self/stat | awk '{print "Minor faults: " $10 ", Major faults: " $12}'
+# (Refresh every 1 second, Press q to exit)
 
-# 9. Set memory limits
-ulimit -a
-ulimit -v 1000000  # Limit virtual memory to 1GB
-bash
-  ps aux | grep bash
-ulimit -v unlimited  # Remove limit
+# 6. View page fault statistics
+cat /proc/$$/stat | awk '{print "Minor: " $10 ", Major: " $12}'
 
-# 10. Detect memory leaks
-valgrind --leak-check=full ./program  # For compiled programs
+# Expected: Minor: 1234, Major: 5
+
+# 7. Allocate memory dynamically
+bash -c 'a=($(seq 1 1000000)); sleep 5'
+
+# Check memory in another terminal with ps
+
+# 8. Check memory of all processes
+ps aux --sort=-%mem | head -5
+
+# Expected: Top 5 by memory usage
+
+# 9. Set memory limit
+ulimit -v 1000000  # Limit to ~1GB virtual
+
+# Try to allocate: bash
+# bash -c 'a=($(seq 1 10000000))'  # Will fail
+
+# 10. Show memory map
+cat /proc/self/maps | head -5
+
+# Expected: Memory regions with permissions
 ```
 
 ## Validation
 
-Verify your memory knowledge:
+Verify your understanding:
 
 ```bash
 # Can you check free memory?
 free -h && echo "✓ Memory check works"
 
-# Can you understand VSZ vs RSS?
+# Understand VSZ vs RSS?
 ps -o pid,vsz,rss,cmd | head && echo "✓ Memory metrics visible"
 
-# Can you set limits?
-ulimit -v 1000000 && echo "✓ Can set limits"
+# Can you set memory limits?
+ulimit -v && echo "✓ Limits accessible"
 
-# Can you view memory maps?
-cat /proc/$$/maps | head && echo "✓ Can view maps"
+# Know page fault concept?
+echo "✓ Page fault concept understood"
 ```
 
 ## Cleanup
 
 ```bash
-# Remove any memory limits
+# Remove limits
 ulimit -v unlimited
-ulimit -s unlimited
 
 # Kill processes
-killall sleep 2>/dev/null
+killall bash 2>/dev/null
 ```
 
 ## Common Mistakes
 
-1. **Confusing VSZ and RSS**: VSZ is allocated, RSS is actually in RAM
-2. **Ignoring swap**: Swap is on disk, much slower than RAM
-3. **Memory limits**: ulimit -v includes swap, not just RAM
-4. **Page fault cost**: Major faults (disk) are expensive, minor faults are cheap
-5. **Shared memory**: RSS counts shared memory per process (use PSS for accurate total)
+1. **Confusing VSZ and RSS**: VSZ allocated, RSS actually in RAM
+2. **Ignoring swap**: Swap is disk-based (much slower)
+3. **Memory limits**: ulimit -v includes swap
+4. **Page fault cost**: Major faults expensive, minor faults cheap
+5. **Shared memory**: RSS counts per-process, use PSS for total
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
 | Out of memory | Check: top, kill large processes, add swap |
-| Memory leak | Use: valgrind, instruments, check allocations |
-| Slow performance | Check: page faults (cat /proc/*/stat), swap usage |
-| Process killed | Check: OOM killer, memory limits |
-| High swap usage | Reduce: process count, increase RAM |
+| Memory leak | Monitor: VSZ growth over time |
+| Slow performance | Check: page faults, swap usage |
+| Process killed (OOM) | Check: kernel logs, increase limits |
+| High swap usage | Add RAM or reduce workload |
 
 ## Next Steps
 
-1. Move to **05-storage-and-filesystems** for disk I/O
-2. Learn about garbage collection
-3. Study memory optimization techniques
-4. Explore cgroups memory limits
-5. Learn about memory pressure and OOM killer
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for reference
+4. Move to **05-storage-and-filesystems** after completion
 
 ## Additional Resources
 
-- Memory layout: `man 7 memory`
-- Process memory: `cat /proc/[pid]/maps`
-- Memory statistics: `man free`, `man top`
-- Valgrind: https://www.valgrind.org/
+- Memory: `man 7 memory`
+- Process memory: `/proc/[pid]/` documentation
+- ulimit: `man bash` (look for ulimit)
+- Memory tools: `man top`, `man free`, `man ps`
 

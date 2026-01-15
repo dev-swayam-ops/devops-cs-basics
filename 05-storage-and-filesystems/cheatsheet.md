@@ -1,84 +1,146 @@
-# 05 - Storage and Filesystems: Cheatsheet & Quiz
+# 05 - Storage and Filesystems Cheatsheet
 
-## Cheatsheet - Filesystem Commands
+## Disk and Partition Commands
 
-| Command | What It Does | Example Output |
-|---------|-------------|-----------------|
-| `df -h` | Show free disk space | `Filesystem Size Used Avail /dev/sda1 50G 20G 27G` |
-| `du -sh *` | Show directory sizes | `4.5G dir1, 2.3G dir2` |
-| `mount` | List mounted filesystems | `/dev/sda1 on / type ext4 (rw,relatime)` |
-| `lsblk` | List block devices | `sda├─sda1, ├─sda2, └─sda3` |
-| `stat file` | File metadata | `Size: 1024, Inode: 123456` |
-| `ln file link` | Create hard link | Same inode, both files point to same data |
-| `ln -s file link` | Create symlink | Points to filename, not inode |
-| `find / -size +1G` | Find large files | Finds all files >1GB |
-| `tar czf out.tgz dir` | Compress directory | Creates compressed archive |
-| `fsck` | Filesystem check | Repairs filesystem errors |
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `lsblk` | List block devices | Show partitions and mounts |
+| `lsblk -f` | Show filesystem types | ext4, xfs, btrfs, etc |
+| `fdisk -l` | Detailed partition info | GPT and MBR details |
+| `parted /dev/sda print` | Partition table | Detailed layout |
+| `blkid` | UUID and labels | Device identifiers |
 
-## Memory
+## Disk Usage Commands
 
-```
-Filesystem Cache:
-- Page Cache: File content caching
-- Buffer Cache: Disk block caching
-- Dentry Cache: Directory entry caching
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `df -h` | Disk free (human readable) | All mounted filesystems |
+| `df -i` | Inode usage | Inode percentage |
+| `du -sh /path` | Directory size | Total only |
+| `du -sh /*` | Top-level sizes | All main dirs |
+| `du -sh /path/*` | Subdirectory breakdown | Each subdir size |
+| `find / -size +100M` | Find large files | >100MB files |
 
-All automatic, managed by kernel
-```
+## File and Permission Commands
 
-## Quick Quiz - Answers
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ls -l` | List with permissions | Full details |
+| `ls -i` | Show inode numbers | Inode column |
+| `stat /path` | File metadata | All file info |
+| `chmod 644 file` | Change permissions | rw-r--r-- |
+| `chmod u+x file` | Add execute (owner) | Make executable |
+| `chown user:group file` | Change owner | New owner |
 
-**Q1: What's in an inode?**
-A: Ownership, permissions, timestamps, size, link count, block pointers
+## Link Commands
 
-**Q2: Why hard links fail across filesystems?**
-A: Inodes unique to filesystem; can't reference inode on different filesystem
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ln file link` | Create hard link | Same inode |
+| `ln -s source link` | Create soft link | Shortcut |
+| `ls -l link` | Identify link type | Shows rw- or l→ |
+| `ln -i file link` | Show inode | Compare numbers |
+| `unlink link` | Remove link | Delete without affecting original |
 
-**Q3: Symlink vs Hard Link?**
-A: Symlink = shortcut to filename; hard link = same inode
+## Mount Commands
 
-**Q4: How to find what's using disk?**
-```bash
-du -sh ~ /* | sort -rh | head -10
-```
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `mount` | Show mounts | All mounted filesystems |
+| `mount /dev/sda1 /mnt` | Mount partition | Attach to directory |
+| `umount /mnt` | Unmount | Detach filesystem |
+| `mount -o remount,rw /` | Remount read-write | Change permissions |
+| `cat /proc/mounts` | Current mounts | Kernel view |
 
-**Q5: Backup vs Archive?**
-A: Backup = full copy for recovery; Archive = compressed for storage
+## Filesystem Maintenance
 
-**Q6: RAID 1 vs RAID 5?**
-A: RAID 1 = mirroring (slower writes); RAID 5 = striping+parity (balanced)
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `fsck /dev/sda1` | Check filesystem | Fix errors (offline) |
+| `fsck.ext4 /dev/sda1` | ext4 specific | Check ext4 only |
+| `e2fsck -f /dev/sda1` | Force check | Bypass journal |
+| `fstrim /mnt` | Trim unused blocks | SSD optimization |
+| `tune2fs -l /dev/sda1` | Filesystem info | Details |
 
-**Q7: Check filesystem for errors?**
-```bash
-sudo fsck -n /dev/sda1  # -n = read-only check
-```
+## Permission Reference
 
----
+| Permission | Number | Meaning |
+|------------|--------|---------|
+| r (read) | 4 | View/list contents |
+| w (write) | 2 | Modify/delete |
+| x (execute) | 1 | Run/enter directory |
+| rw- | 6 | Read + write |
+| rwx | 7 | All permissions |
+| r-- | 4 | Read only |
 
-## Filesystem Performance Tuning
+## Permission Format (rwxrwxrwx)
 
-```bash
-# Check filesystem options
-tune2fs -l /dev/sda1 | grep -i feature
+| Position | Meaning | Example |
+|----------|---------|---------|
+| 1st char | File type (- = file, d = dir, l = link) | `-` |
+| 2-4 | Owner (user) | `rw-` |
+| 5-7 | Group | `r--` |
+| 8-10 | Others | `r--` |
+| Octal | All three combined | 644 (rw-r--r--) |
 
-# Disable access time updates (improves performance)
-mount -o remount,noatime /
+## Common Permission Patterns
 
-# Check I/O scheduler
-cat /sys/block/sda/queue/scheduler
+| Mode | Octal | Use Case |
+|------|-------|----------|
+| rwxr-xr-x | 755 | Executable, readable by all |
+| rw-r--r-- | 644 | Regular file, owner can edit |
+| rwx------ | 700 | Owner only (private) |
+| rwxrwxrwx | 777 | Everyone can do everything |
+| rw------- | 600 | Owner can read/write only |
 
-# Change scheduler (cfq, deadline, noop)
-echo deadline > /sys/block/sda/queue/scheduler
-```
+## Inode Information
 
-## Common Filesystem Issues
+| Concept | Meaning | Notes |
+|---------|---------|-------|
+| Inode | Metadata container | Contains permissions, owner, timestamps |
+| Inode number | Unique ID per file | Same for hard links |
+| Hard link | Multiple names, same inode | Same permissions, size |
+| Soft link | Shortcut to file | Different inode, follows original |
+| Max hardlinks | Limited by filesystem | Typically 32000+ |
 
-| Problem | Symptom | Solution |
+## Filesystem Types
+
+| Filesystem | Pros | Cons |
+|------------|------|------|
+| ext4 | Standard, stable | Limited features |
+| xfs | High performance | Less recovery tools |
+| btrfs | Modern, snapshots | Experimental |
+| FAT32 | USB compatible | Limited file size |
+| NTFS | Windows native | Less Linux support |
+
+## Troubleshooting
+
+| Problem | Command | Solution |
 |---------|---------|----------|
-| Disk full | `No space left` | `du -sh`, delete old logs |
-| Slow I/O | High wait time | Check `iostat`, optimize queries |
-| Corrupted | Can't mount | `fsck -y` to repair |
-| Inodes full | Despite space free | Delete many small files |
-| Permission denied | Can't access files | Check with `ls -l`, use `chmod` |
+| Disk full | `du -sh /*` | Find and delete large dirs |
+| No inodes | `df -i` | Delete small files |
+| Slow read | `fstrim /` | Optimize SSD |
+| Can't mount | `mount` | Check if already mounted |
+| Permission denied | `ls -l` | Fix with chmod/chown |
 
----
+## Quick Reference
+
+```bash
+# Disk overview
+lsblk; df -h; df -i
+
+# Find large files
+du -sh /* | sort -rh
+
+# Set typical permissions
+chmod 644 file      # rw-r--r-- (regular file)
+chmod 755 script    # rwxr-xr-x (executable)
+chmod 700 private   # rwx------ (owner only)
+
+# Change owner
+chown user:group file
+
+# Create links
+ln source hardlink
+ln -s source softlink
+```

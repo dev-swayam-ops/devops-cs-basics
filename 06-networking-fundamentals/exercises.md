@@ -1,150 +1,137 @@
-# 06 - Networking Fundamentals: Exercises
+# 06 - Networking Fundamentals Exercises
 
-## Exercise 1: Understanding OSI Model (Easy)
+## Easy Exercises (1-5)
 
-Research and map these to OSI layers:
-- IP address routing
-- TCP packet delivery
-- Ethernet MAC address
-- DNS resolution
-- HTTP request
+### Exercise 1: List Network Interfaces
+**Objective**: See available network devices.
 
-1. Name all 7 OSI layers
-2. Which layer handles each technology above?
-3. What is encapsulation?
-
----
-
-## Exercise 2: Check Network Configuration (Easy)
-
-```bash
-ip addr show              # IP addresses
-ip route show             # Routing table
-ss -tlnp                  # Listening ports
-netstat -an              # Network connections
-hostname -I              # Host IP
-```
-
-1. What is your IP address?
-2. What is your default gateway?
-3. What ports are listening?
+**Task**:
+- Run: `ip link show`
+- How many interfaces?
+- Which is loopback?
+- Which is primary (eth0, wlan0)?
+- What's the state? (UP, DOWN?)
 
 ---
 
-## Exercise 3: DNS Queries (Easy)
+### Exercise 2: Check IP Addresses
+**Objective**: Learn IP configuration.
 
-```bash
-nslookup google.com
-dig google.com
-dig +trace google.com
-host example.com
-```
-
-1. What is DNS?
-2. What is the difference between A and AAAA records?
-3. How many DNS queries does a lookup take?
+**Task**:
+- Run: `ip addr show`
+- What's your IP?
+- What's subnet (/24, /32)?
+- What's loopback IP? (always?)
+- What's broadcast address?
 
 ---
 
-## Exercise 4: Network Connectivity Testing (Medium)
+### Exercise 3: View Routing Table
+**Objective**: Understand how traffic routes.
 
-```bash
-ping -c 4 8.8.8.8
-ping -c 4 -i 2 8.8.8.8    # Interval 2 seconds
-mtr google.com             # Traceroute + ping
-traceroute google.com
-```
-
-1. How many hops to reach google.com?
-2. Where is latency added?
-3. Interpret ICMP unreachable messages
+**Task**:
+- Run: `ip route show`
+- What's default gateway?
+- What's local route?
+- Destination 0.0.0.0 means?
+- Which interface used?
 
 ---
 
-## Exercise 5: Port Scanning and Services (Medium)
+### Exercise 4: Test Connectivity
+**Objective**: Verify network works.
 
-```bash
-ss -tlnp
-netstat -tulpn | grep LISTEN
-nmap -p 80,443,22 localhost
-lsof -i -P -n | grep LISTEN
-```
-
-1. What services are running?
-2. What ports are they using?
-3. Which process owns each port?
+**Task**:
+- Run: `ping -c 4 127.0.0.1` (localhost)
+- All packets received?
+- Latency? (ms)
+- Run: `ping -c 4 8.8.8.8`
+- Can reach internet?
 
 ---
 
-## Exercise 6: Packet Capture and Analysis (Medium)
+### Exercise 5: Check Open Ports
+**Objective**: See listening services.
 
-```bash
-sudo tcpdump -i eth0 -n port 80
-sudo tcpdump -r capture.pcap
-sudo tshark -r capture.pcap
-```
-
-1. What does tcpdump do?
-2. Capture HTTP traffic and analyze
-3. What TCP flags appear in initial handshake?
+**Task**:
+- Run: `ss -tuln | grep LISTEN`
+- What ports are open?
+- Which protocol? (tcp, udp)
+- What's 127.0.0.1 mean? (localhost only)
+- What's 0.0.0.0 mean? (all interfaces)
 
 ---
 
-## Exercise 7: Routing and Network Performance (Medium)
+## Medium Exercises (6-10)
 
-```bash
-ip route show
-ip route add 192.168.1.0/24 via 10.0.0.1
-traceroute -m 15 google.com
-mtr -c 10 google.com
-```
+### Exercise 6: Resolve DNS
+**Objective**: Understand name resolution.
 
-1. What is routing?
-2. How does traffic choose a path?
-3. What is a routing loop?
-
----
-
-## Exercise 8: Network Interfaces and Bonding (Medium)
-
-```bash
-ip link show
-ip addr show
-ethtool eth0
-```
-
-1. What is an interface?
-2. What is link speed?
-3. How would you bond two interfaces?
+**Task**:
+- Run: `nslookup google.com`
+- What's IP for google.com?
+- Run: `nslookup localhost`
+- What's IP for localhost?
+- Check resolver: `cat /etc/resolv.conf`
+- What nameservers configured?
 
 ---
 
-## Exercise 9: Firewall and NAT Basics (Medium)
+### Exercise 7: Trace Route to Server
+**Objective**: See path to destination.
 
-```bash
-sudo iptables -L -n
-sudo iptables -L -n -t nat
-sudo firewall-cmd --list-all  # firewalld
-```
+**Task**:
+- Run: `traceroute 8.8.8.8`
+- How many hops?
+- What's first hop? (default gateway)
+- What's latency trend? (increasing?)
+- Run: `traceroute google.com`
+- Same as IP or different?
 
-1. What is a firewall rule?
-2. What is NAT (Network Address Translation)?
-3. How to block a port with iptables?
+---
+
+### Exercise 8: Analyze Network Traffic
+**Objective**: Monitor connection patterns.
+
+**Task**:
+- Run: `ss -tuln`
+- Count listening sockets
+- Run: `ss -tan`
+- Show established connections
+- What's difference? (state column)
 
 ---
 
-## Exercise 10: Network Debugging and Monitoring (Medium)
+### Exercise 9: Check Interface Statistics
+**Objective**: See traffic patterns.
 
-```bash
-iftop -n          # Top network talkers
-nethogs           # Network usage by process
-vnstat -h         # Historical network stats
-ss -an           # All connections
-netstat -an | grep ESTABLISHED | wc -l
-```
-
-1. Which process uses most bandwidth?
-2. How many active connections?
-3. Identify unusual traffic
+**Task**:
+- Run: `ip -s link show`
+- RX packets > TX packets?
+- Any errors? (ERR column)
+- Run: `ifconfig`
+- Same info different format?
 
 ---
+
+### Exercise 10: Calculate IP Subnet
+**Objective**: Understand CIDR notation.
+
+**Task**:
+- IP: 192.168.1.0/24
+- How many hosts? (2^(32-24)-2)
+- Network address?
+- Broadcast address?
+- IP: 10.0.0.0/16
+- How many hosts? (2^(32-16)-2)
+- Range for /16?
+
+---
+
+## Submission Tips
+
+1. Use `ip` commands (modern, replaces ifconfig)
+2. `ss` is newer than `netstat`
+3. Remember: 0.0.0.0 = all interfaces
+4. Remember: 127.0.0.1 = localhost
+5. CIDR: /24 = 256 addresses, /16 = 65536 addresses

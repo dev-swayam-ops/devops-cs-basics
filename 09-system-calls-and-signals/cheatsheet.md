@@ -1,237 +1,160 @@
-# 09-16: Cheatsheets (Consolidated)
+# 09 - System Calls and Signals Cheatsheet
 
-## Module 09 - Signals & Syscalls
+## Signal Numbers and Names
 
-**Common Syscalls**:
-```
-fork()      Create process
-exec()      Replace process
-read()      Read file
-write()     Write file
-open()      Open file
-close()     Close file
-brk()       Extend heap
-mmap()      Map memory
-wait()      Wait for child
-kill()      Send signal
-```
+| Signal | Number | Meaning | Default |
+|--------|--------|---------|---------|
+| SIGHUP | 1 | Hangup (terminal closed) | Terminate |
+| SIGINT | 2 | Interrupt (Ctrl+C) | Terminate |
+| SIGQUIT | 3 | Quit (Ctrl+\) | Core dump |
+| SIGKILL | 9 | Kill (forced) | Terminate (can't catch) |
+| SIGTERM | 15 | Terminate (graceful) | Terminate |
+| SIGSTOP | 19 | Stop (pause) | Stop (can't catch) |
+| SIGCONT | 18 | Continue (resume) | Continue |
+| SIGCHLD | 17 | Child died | Ignore |
+| SIGUSR1 | 10 | User-defined | Terminate |
+| SIGUSR2 | 12 | User-defined | Terminate |
 
-**Common Signals**:
-```
-1   SIGHUP      Hangup
-2   SIGINT      Interrupt (Ctrl+C)
-3   SIGQUIT     Quit (Ctrl+\)
-9   SIGKILL     Kill (uncatchable)
-15  SIGTERM     Terminate (graceful)
-19  SIGSTOP     Stop (uncatchable)
-20  SIGTSTP     Suspend (Ctrl+Z)
-```
+## Kill Command
 
-**Debugging**:
-```bash
-strace -c cmd          Count syscalls
-strace -e trace=syscall cmd
-trap 'echo Signal!' TERM
-kill -l                List signals
-```
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `kill -TERM [PID]` | Graceful termination | Signal 15 |
+| `kill -9 [PID]` | Force kill | SIGKILL, can't catch |
+| `kill -STOP [PID]` | Pause process | Signal 19 |
+| `kill -CONT [PID]` | Resume process | Signal 18 |
+| `kill -l` | List all signals | Signal reference |
+| `kill -SIGTERM [PID]` | By name | Same as -TERM |
+| `kill -[NUMBER] [PID]` | By number | 15 = SIGTERM |
 
----
+## Process Control Commands
 
-## Module 10 - Scheduling & Performance
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `pkill -TERM name` | Kill by name | Multiple processes |
+| `pkill -9 name` | Force kill by name | Last resort |
+| `pkill -l name` | List matching processes | Show PIDs first |
+| `killall TERM name` | Old kill all | Process name |
+| `killall -9 name` | Force kill all | Forced version |
 
-```bash
-# Priorities
-nice -n 10 cmd         Run low priority
-renice -5 -p PID       Raise priority
-getpriority process PID
+## Process Signals Behavior
 
-# CPU Affinity
-taskset -c 0,1 cmd     Pin to CPUs 0,1
-taskset -p 0x3 PID
+| Action | SIGTERM | SIGKILL | SIGSTOP |
+|--------|---------|---------|---------|
+| Catchable | Yes | No | No |
+| Ignorable | Yes | No | No |
+| Graceful exit | Yes | No | N/A |
+| Cleanup | Yes | No | N/A |
+| Can resume | After cont | After cont | Yes |
 
-# Profiling
-perf stat cmd
-perf record cmd
-perf report
-perf top
+## System Call Examples
 
-# Load
-uptime                 Check load
-load average           Should be < CPU count
-```
+| Syscall | Purpose | From |
+|---------|---------|------|
+| fork | Create process copy | C, bash |
+| exec | Replace program | C, bash |
+| exit | Terminate | C, bash |
+| wait | Wait for child | C |
+| kill | Send signal | C, bash |
+| read | Read data | C |
+| write | Write data | C |
 
----
+## Trap Syntax (Bash)
 
-## Module 11 - Distributed Systems
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `trap "cmd" SIGNAL` | Handle signal | trap "echo done" TERM |
+| `trap "" SIGNAL` | Ignore signal | trap "" TERM |
+| `trap - SIGNAL` | Reset default | trap - TERM |
+| `trap "cmd" EXIT` | On script exit | trap "cleanup" EXIT |
+| `trap -p` | Print all traps | Show current |
 
-```
-CAP Theorem:
-- Consistency: All see same data
-- Availability: System always responds
-- Partition: Works with network split
-→ Pick any 2
+## Process States
 
-Replication:
-- Master-slave: One master, many slaves
-- Master-master: Multiple masters
-- Multi-master: All masters
+| State | Letter | Meaning |
+|-------|--------|---------|
+| Running | R | Executing on CPU |
+| Sleeping | S | Waiting for I/O |
+| Disk sleep | D | Uninterruptible wait |
+| Stopped | T | Paused (SIGSTOP) |
+| Zombie | Z | Terminated, awaiting reap |
+| Trace stop | t | Being debugged |
 
-Consensus:
-- Raft: Log replication
-- Paxos: Complex but powerful
-- Quorum: Majority must agree
-```
+## Checking Processes
 
----
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `ps aux` | Show all with state | Find zombies (Z) |
+| `ps aux \| grep [PID]` | Find specific | Check status |
+| `jobs -l` | Shell job list | With PIDs |
+| `fg %1` | Foreground job | Bring to front |
+| `bg %1` | Background job | Resume in background |
 
-## Module 12 - Databases
+## Common Signal Patterns
 
-```sql
--- Query optimization
-EXPLAIN ANALYZE SELECT * FROM users WHERE id=1;
-CREATE INDEX idx_id ON users(id);
+| Action | Command | Explanation |
+|--------|---------|--------------|
+| Graceful shutdown | kill -TERM | App can clean up |
+| Force shutdown | kill -9 | Immediate, no cleanup |
+| Pause process | kill -STOP | Like Ctrl+Z |
+| Resume process | kill -CONT | Continue running |
+| Reload config | kill -HUP | Some apps re-read config |
 
--- Replication
-SHOW MASTER STATUS;
-SHOW SLAVE STATUS;
-SET GLOBAL read_only = ON;
+## Zombie Prevention
 
--- Backup
-mysqldump -u root db > backup.sql
-mysql -u root db < backup.sql
+| Method | How | Example |
+|--------|-----|---------|
+| wait() | C call | wait(&status) |
+| Process reaping | Systemd | Automatic |
+| Double fork | Daemonize | Fork, then fork again |
 
--- Monitoring
-SHOW PROCESSLIST;
-SHOW ENGINE INNODB STATUS;
-```
-
----
-
-## Module 13 - Caching & Queues
-
-```bash
-# Redis
-redis-cli
-SET key value EX 3600
-GET key
-DEL key
-INCR counter
-LPUSH queue item
-
-# Memcached
-memcached -p 11211
-telnet localhost 11211
-set key 0 3600 5
-value
-
-# Kafka
-kafka-topics.sh --list
-kafka-console-producer.sh
-kafka-console-consumer.sh
-
-# RabbitMQ
-rabbitmqctl list_queues
-amqp-consume
-amqp-publish
-```
-
----
-
-## Module 14 - Security
+## Process Group Signals
 
 ```bash
-# Encryption
-openssl genrsa -out private.key 2048
-openssl req -new -x509 -key private.key -out cert.pem
+# Send to process
+kill -TERM 12345
 
-# TLS
-openssl s_client -connect server:443
-curl -v https://server
+# Send to all in group
+kill -TERM -12345      # Negative = process group
 
-# Firewall
-iptables -L -n
-iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-ufw enable
-ufw allow 22
-
-# SELinux
-setenforce Enforcing
-getenforce
-chcon -t type_t file
+# Send to all matching
+pkill -TERM -f sleep   # All matching pattern
 ```
 
----
+## Safe Signal Handlers
 
-## Module 15 - Observability
+Functions safe in signal handlers:
+- write()
+- signal()
+- _exit()
+- Some others (limited)
+
+Avoid:
+- malloc/free
+- printf
+- Most library calls
+
+## Quick Reference
 
 ```bash
-# ELK
-curl -X POST localhost:9200/index/_doc -d '{"data":"value"}'
+# List signals
+kill -l
 
-# Prometheus
-curl localhost:9090/api/v1/query?query=metric
+# Kill gracefully
+kill -TERM $PID
 
-# Grafana
-http://localhost:3000
+# Force kill
+kill -9 $PID
 
-# Logging
-journalctl -xe
-tail -f /var/log/syslog
-grep error /var/log/app.log
+# Multiple processes
+pkill -TERM sleep
 
-# Tracing
-opentelemetry-otlp-exporter
-jaeger-agent
+# Trap in script
+trap "echo Caught" TERM
 
-# Alerting
-alertmanager
-prometheus alerts.yml
+# Ignore signal
+trap "" TERM
+
+# Check state
+ps aux | grep PID
 ```
-
----
-
-## Module 16 - Interview Essentials
-
-**OS & Kernel**:
-- Virtual memory, paging, swap
-- Process scheduling, priority
-- Memory hierarchy, cache
-- System calls, syscall overhead
-
-**Processes & Threads**:
-- fork(), exec() flow
-- Process states, lifecycle
-- Thread safety, race conditions
-- Synchronization, deadlock
-
-**Networking**:
-- TCP 3-way handshake
-- DNS resolution, caching
-- HTTP methods, status codes
-- Load balancing, CDN
-
-**Storage**:
-- Inode structure
-- Hard links vs symlinks
-- RAID levels (0,1,5,10)
-- Backup strategies
-
-**Distributed**:
-- CAP theorem
-- Consensus algorithms
-- Consistency models
-- Replication strategies
-
-**Databases**:
-- ACID properties
-- Indexing (B-tree, hash)
-- Query optimization
-- Sharding, replication
-
-**Monitoring**:
-- Metrics, logs, traces
-- SLI, SLO, SLR
-- Alerting thresholds
-- Root cause analysis
-
----

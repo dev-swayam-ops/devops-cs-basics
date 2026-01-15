@@ -2,151 +2,163 @@
 
 ## What You'll Learn
 
-Master caching and message queues:
-- Caching strategies (LRU, LFU, TTL)
-- Cache invalidation and coherence
-- Message queue patterns
-- Distributed queues (RabbitMQ, Kafka)
-- Pub/Sub systems
-- Performance bottleneck mitigation
-- Monitoring queues and caches
+- Caching strategies and patterns
+- Redis basics and operations
+- Cache invalidation techniques
+- Message queues and pub/sub
+- Queue-based architecture
+- Cache performance optimization
+- Queue monitoring and troubleshooting
 
 ## Prerequisites
 
 - Completed **12-databases-for-devops**
-- Understanding of databases and APIs
-- Performance optimization mindset
+- Understanding of databases
+- Basic networking knowledge
 
 ## Key Concepts
 
 ### 1. Caching Strategies
-- **LRU (Least Recently Used)**: Discard least recently accessed
-- **LFU (Least Frequently Used)**: Discard least frequently accessed
-- **TTL (Time-To-Live)**: Expire after time period
-- **Write-Through**: Write to cache and DB
-- **Write-Back**: Write to cache, flush to DB later
+```
+Cache-aside: App checks cache first
+Write-through: Write to cache and DB
+Write-behind: Write to cache first, async to DB
+TTL: Time-to-live (expiration)
+```
 
-### 2. Cache Invalidation
-- Hardest problem in computer science!
-- **Time-based**: TTL expiration
-- **Event-based**: Explicit invalidation
-- **LRU/LFU**: Capacity-based eviction
-- **Dependency-based**: Invalidate related entries
+### 2. Cache Patterns
+- **Distributed cache**: Shared across servers
+- **Local cache**: Per-server memory
+- **LRU**: Least recently used eviction
+- **TTL**: Automatic expiration
 
 ### 3. Message Queues
-- Decouple producer from consumer
-- Async processing
-- Guaranteed delivery
-- Ordering (some systems)
-- Examples: RabbitMQ, Kafka, SQS
+```
+Producer: Sends message
+Queue: Buffers message
+Consumer: Processes message
+Async: Producer doesn't wait
+```
 
-### 4. Queue Patterns
-- **Work Queue**: Task distribution
-- **Pub/Sub**: Publish to many subscribers
-- **RPC Queue**: Request-reply pattern
-- **Priority Queue**: High-priority tasks first
+### 4. Pub/Sub Model
+- Publisher: Sends message to topic
+- Subscriber: Listens to topic
+- Topic: Message group
+- Broadcasting: All subscribers get message
 
-## Hands-on Lab: Caching and Queues
+### 5. Queue Types
+- **FIFO**: First-in, first-out (reliable)
+- **Priority**: High priority first
+- **Dead letter**: Failed messages
 
-### Lab Steps
+## Hands-on Lab: Redis Cache and Queue
+
+### Lab Overview
+Use Redis for caching and message queueing.
+
+### Lab Commands
 
 ```bash
-# 1. Redis caching
-redis-cli > SET user:1:profile "{name:john}" EX 3600
-redis-cli > GET user:1:profile
-redis-cli > TTL user:1:profile
+# 1. Start Redis
+redis-server &
 
-# 2. Cache invalidation
-redis-cli > SET key1 "value1"
-redis-cli > GET key1
-redis-cli > DEL key1
+# 2. Connect to Redis
+redis-cli
 
-# 3. RabbitMQ message queue
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+# 3. Set key-value
+SET mykey "Hello"
 
-# 4. Publish message
-rabbitmqctl declare queue name=task_queue durable=true
-rabbitmq-publish -x '' -r task_queue -p 'message body'
+# Expected: OK
 
-# 5. Consumer listening
-rabbitmq-consume -q task_queue
+# 4. Get value
+GET mykey
 
-# 6. Kafka for streaming
-docker run -d --name kafka -p 9092:9092 confluentinc/cp-kafka
+# Expected: "Hello"
 
-# 7. Create Kafka topic
-kafka-topics --create --topic events --partitions 3 --replication-factor 1
+# 5. Set with expiration
+SET cache_key "data" EX 60
 
-# 8. Produce to topic
-echo "event data" | kafka-console-producer --topic events --bootstrap-server localhost:9092
+# Expected: OK (expires in 60 seconds)
 
-# 9. Consume from topic
-kafka-console-consumer --topic events --bootstrap-server localhost:9092
+# 6. Check TTL
+TTL cache_key
 
-# 10. Monitor queue depth
-redis-cli > LLEN task_queue
-rabbitmqctl list_queues
+# Expected: 59 (or similar, countdown)
+
+# 7. List all keys
+KEYS *
+
+# Expected: (all keys)
+
+# 8. Push to queue (list)
+LPUSH myqueue "job1"
+LPUSH myqueue "job2"
+
+# 9. Pop from queue
+LPOP myqueue
+
+# Expected: "job2" (LIFO order)
+
+# 10. Queue length
+LLEN myqueue
+
+# Expected: 1
 ```
 
 ## Validation
 
-Verify your understanding:
-
 ```bash
-# Can you set cache values?
-redis-cli SET test "value" && echo "✓ Caching works"
+# Can you connect to Redis?
+redis-cli ping && echo "✓ Redis works"
 
-# Can you set TTL?
-redis-cli SET key "val" EX 10 && echo "✓ TTL works"
+# Set and get keys?
+redis-cli SET test 1 && redis-cli GET test && echo "✓ Cache works"
 
-# Can you understand invalidation?
-echo "✓ Invalidation strategies understood"
+# Use queues?
+echo "✓ Queue operations understood"
 
-# Can you publish/subscribe?
-echo "✓ Queue patterns understood"
+# Know TTL?
+echo "✓ Expiration understood"
 ```
 
 ## Cleanup
 
 ```bash
-# Flush Redis
+# Flush all data
 redis-cli FLUSHALL
 
-# Stop containers
-docker stop rabbitmq kafka 2>/dev/null
-docker rm rabbitmq kafka 2>/dev/null
+# Shutdown Redis
+redis-cli SHUTDOWN
 ```
 
 ## Common Mistakes
 
-1. **Too large cache**: Slows down lookups, wastes memory
-2. **No TTL**: Stale data served forever
-3. **Cache stampede**: Many requests miss cache at same time
-4. **Lost messages**: No persistence in queue
-5. **Unbounded queue**: Memory leak when producer > consumer
+1. **Cache stampede**: Many requests on cache miss
+2. **Stale data**: TTL too long
+3. **Cache eviction**: LRU removes needed data
+4. **Queue blocking**: Consumer blocks producer
+5. **Message loss**: No persistence setting
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| High cache miss rate | Check: TTL, eviction policy, key distribution |
-| Stale cache data | Set: appropriate TTL, implement invalidation |
-| Queue backup | Increase: consumer count, optimize: processing |
-| Message loss | Enable: persistence, replication, acknowledge |
-| High latency | Monitor: queue depth, consumer lag, processing time |
+| High cache miss rate | Check: TTL, key patterns |
+| Memory full | Configure: maxmemory, eviction |
+| Slow queue processing | Check: consumer speed, parallelism |
+| Lost messages | Enable: persistence (RDB/AOF) |
+| Network timeout | Check: connection pool, timeout |
 
 ## Next Steps
 
-1. Move to **14-security-basics** for secure message handling
-2. Learn about distributed caching (Memcached, Redis Cluster)
-3. Study consumer groups and partitioning
-4. Explore dead letter queues and retry policies
-5. Learn about cache warming and preloading
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **14-security-basics** after completion
 
 ## Additional Resources
 
-- Redis: https://redis.io/commands/
-- RabbitMQ: https://www.rabbitmq.com/documentation.html
-- Kafka: https://kafka.apache.org/documentation/
-- Cache patterns: https://en.wikipedia.org/wiki/Cache_(computing)
+- Redis: redis.io/commands
+- Caching: "Cache Patterns" blog posts
+- Queues: "Message Queue Patterns"
 

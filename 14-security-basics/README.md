@@ -2,141 +2,167 @@
 
 ## What You'll Learn
 
-Master security fundamentals:
-- Authentication vs authorization
+- Authentication and authorization
 - Encryption (symmetric and asymmetric)
-- SSH keys and password management
-- Firewalls and network security
-- HTTPS/TLS and certificates
-- Common vulnerabilities
+- SSL/TLS certificates
+- SSH keys and key-based auth
+- User and permission management
+- Firewall and network security
 - Security best practices
-- Audit logging
+- Vulnerability scanning
 
 ## Prerequisites
 
 - Completed **13-caching-and-queues**
-- Understanding of networking and systems
-- Security mindset
+- Understanding of users and permissions
+- Basic networking knowledge
 
 ## Key Concepts
 
 ### 1. Authentication vs Authorization
-- **Authentication**: Verify who you are (username/password, SSH keys)
-- **Authorization**: What are you allowed to do (permissions, roles)
-- Both are necessary: Good auth + bad authz = security hole
+```
+Authentication: Who are you? (login)
+Authorization: What can you do? (permissions)
+```
 
 ### 2. Encryption Types
-- **Symmetric**: Same key to encrypt and decrypt (AES, DES) - fast
-- **Asymmetric**: Public key encrypts, private key decrypts (RSA, ECDSA) - slower
-- **Hashing**: One-way conversion (SHA256, bcrypt) - password storage
+- **Symmetric**: Same key (AES, DES) - fast
+- **Asymmetric**: Public/private (RSA) - slow but secure
+- **Hash**: One-way (SHA256, bcrypt) - passwords
 
-### 3. SSH Key Management
-- Private key: Keep secret, never share
-- Public key: Share widely, added to authorized_keys
-- Passphrase: Optional password protecting private key
+### 3. SSH Key-Based Auth
+```
+Private key: Keep secret (id_rsa)
+Public key: Share widely (id_rsa.pub)
+Server stores public, client uses private
+No password needed
+```
 
-### 4. HTTPS/TLS
-- SSL/TLS encrypts connection
-- Certificate: Proves server identity
-- CA (Certificate Authority): Issues certificates
-- OCSP Stapling: Check revocation status
+### 4. Certificates
+- **CA**: Certificate Authority (trusted)
+- **Certificate**: Proves domain ownership
+- **Expiry**: Must renew periodically
+- **Chain**: CA → Intermediate → End Entity
 
-## Hands-on Lab: Security Practices
+### 5. Security Layers
+```
+Network: Firewall, VPN
+Transport: TLS, SSH
+Application: User auth, permissions
+Data: Encryption, hashing
+```
 
-### Lab Steps
+## Hands-on Lab: SSH Keys and Permissions
+
+### Lab Overview
+Create SSH keys, set permissions, understand security model.
+
+### Lab Commands
 
 ```bash
 # 1. Generate SSH key pair
-ssh-keygen -t ed25519 -f /tmp/testkey -N "passphrase"
-ls -la /tmp/testkey*
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
 
-# 2. Check key permissions
-stat /tmp/testkey
-chmod 600 /tmp/testkey
+# Expected: Private and public key created
 
-# 3. View public key
-cat /tmp/testkey.pub
+# 2. View public key
+cat ~/.ssh/id_rsa.pub
 
-# 4. Copy SSH key (simulation)
-cat /tmp/testkey.pub >> ~/.ssh/authorized_keys
+# Expected: ssh-rsa AAAAB3... user@host
 
-# 5. Hash a password with bcrypt
-echo -n "mypassword" | sha256sum
-htpasswd -c /tmp/users admin
+# 3. Set proper permissions
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_rsa
+chmod 644 ~/.ssh/id_rsa.pub
 
-# 6. Check file permissions
-ls -la /tmp/users
-cat /tmp/users
+# 4. Check file permissions
+ls -la ~/.ssh/
 
-# 7. View SSL certificate
-openssl x509 -in /etc/ssl/certs/ca-certificates.crt -text -noout | head -20
+# Expected: drwx------ for .ssh, -rw------- for id_rsa
 
-# 8. Generate self-signed certificate
-openssl req -x509 -newkey rsa:4096 -keyout /tmp/key.pem -out /tmp/cert.pem -days 365 -nodes
+# 5. Test SSH key
+ssh-keygen -l -f ~/.ssh/id_rsa
 
-# 9. Check certificate validity
-openssl x509 -in /tmp/cert.pem -text -noout | grep -A 2 Validity
+# Expected: Key fingerprint
 
-# 10. Test HTTPS connection
-curl -k https://localhost 2>/dev/null || echo "No local HTTPS server"
+# 6. Check user permissions
+ls -l /etc/passwd /etc/shadow
+
+# Expected: 644 passwd, 000 shadow (restricted)
+
+# 7. List user groups
+id
+
+# Expected: uid=1000(user) gid=1000(user) groups=...
+
+# 8. Set file ownership
+chmod 644 testfile
+ls -l testfile
+
+# Expected: -rw-r--r--
+
+# 9. Change group
+chgrp groupname testfile
+
+# 10. Verify permissions
+stat testfile
+
+# Expected: (permissions, owner, group, timestamps)
 ```
 
 ## Validation
 
-Verify your security knowledge:
-
 ```bash
 # Can you generate SSH keys?
-ssh-keygen -t ed25519 -f /tmp/test -N "" && echo "✓ SSH key generation works"
+test -f ~/.ssh/id_rsa && echo "✓ SSH keys created"
 
-# Can you check permissions?
-ls -la /tmp/test && echo "✓ Permission checking works"
+# Understand permissions?
+ls -l /etc/shadow && echo "✓ Permissions visible"
 
-# Can you understand encryption?
-echo "✓ Encryption concepts understood"
+# Know authentication?
+echo "✓ Auth/AuthZ understood"
 
-# Can you work with certificates?
-echo "✓ Certificate concepts understood"
+# Handle encryption?
+echo "✓ Encryption understood"
 ```
 
 ## Cleanup
 
 ```bash
-rm -f /tmp/testkey* /tmp/users /tmp/key.pem /tmp/cert.pem /tmp/test /tmp/test.pub
+# Remove test files
+rm -f testfile
+chmod 700 ~/.ssh/id_rsa  # Ensure private key protected
 ```
 
 ## Common Mistakes
 
-1. **Weak passwords**: Use password managers
-2. **Shared SSH keys**: Each person gets their own key
-3. **Unencrypted communication**: Always use TLS/HTTPS
-4. **No logging**: Can't audit without logs
-5. **Ignoring security updates**: Patch regularly!
-6. **Overprivileged users**: Principle of least privilege
-7. **Hardcoded secrets**: Use secret management tools
+1. **World-readable private key**: chmod 600 private
+2. **Weak passwords**: Use 12+ chars, mixed case
+3. **No backup**: Backup private key securely
+4. **Hardcoded credentials**: Use env vars or vault
+5. **Self-signed certs**: Use CA for production
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| SSH key permission denied | Check: permissions 600, correct user |
-| Certificate expired | Renew: certificate, check: system time |
-| HTTPS connection refused | Verify: port listening, certificate valid |
-| Weak cipher suite | Update: OpenSSL, enable modern TLS |
-| Audit trail missing | Enable: logging, check: log location |
+| SSH permission denied | Check: key permissions, .ssh folder |
+| Can't connect | Check: firewall, port, hostname |
+| Certificate error | Check: expiry, CA chain, hostname |
+| Permission denied (file) | Check: file perms, user groups |
+| Weak password | Use: 12+ chars, complexity |
 
 ## Next Steps
 
-1. Move to **15-observability-and-debugging** for monitoring security
-2. Learn about secrets management (Vault, k8s Secrets)
-3. Study encryption at rest
-4. Explore security scanning (Snyk, Trivy)
-5. Learn about security incident response
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **15-observability-and-debugging** after completion
 
 ## Additional Resources
 
-- SSH best practices: https://man.openbsd.org/ssh
-- OWASP: https://owasp.org/www-project-top-ten/
-- TLS: https://en.wikipedia.org/wiki/Transport_Layer_Security
-- OpenSSL: https://www.openssl.org/docs/
+- SSH: `man ssh-keygen`, `man ssh`
+- Permissions: `man chmod`, `man chown`
+- Certs: openssl.org, let's encrypt
+- Security: OWASP Top 10
 

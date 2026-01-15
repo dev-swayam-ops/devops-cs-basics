@@ -1,353 +1,137 @@
-# 03 - Threads and Concurrency: Exercises
+# 03 - Threads and Concurrency Exercises
 
-## Exercise 1: Understand Threading Basics (Easy)
+## Easy Exercises (1-5)
 
-Research and define:
-1. What is a thread?
-2. How do threads differ from processes?
-3. What is multithreading?
-4. Name 3 advantages of using threads
+### Exercise 1: Understand Race Condition
+**Objective**: Observe unpredictable behavior without synchronization.
 
----
-
-## Exercise 2: Identify Threads in Running Processes (Easy)
-
-```bash
-ps -eLf | grep bash
-ps -eLf | grep systemd
-pthreads_demo &
-ps -eLf | grep pthreads_demo
-cat /proc/[PID]/status | grep Threads
-```
-
-1. How many threads does your bash process have?
-2. How many threads does systemd have?
-3. What command shows thread count?
+**Task**:
+- Create a script that increments a variable 1000 times
+- Run two instances concurrently in background
+- Compare results - are they the same each time?
+- What should the result be?
+- Why does it vary?
 
 ---
 
-## Exercise 3: Race Condition Scenario (Easy)
+### Exercise 2: Use File Locking
+**Objective**: Apply synchronization to prevent race conditions.
 
-Create a simple race condition:
-
-```bash
-#!/bin/bash
-counter=0
-for i in {1..100}; do
-    ((counter++)) &
-done
-wait
-echo "Counter: $counter"
-echo "Expected: 100"
-```
-
-1. Why might counter be less than 100?
-2. What is a race condition?
-3. How does this relate to threads?
+**Task**:
+- Create a counter file (e.g., `/tmp/count.txt` = 0)
+- Write a function that: locks, increments, unlocks
+- Run 5 instances concurrently
+- Check final result (should be 5)
+- Verify lock file was created/used
 
 ---
 
-## Exercise 4: Thread Safety (Medium)
+### Exercise 3: Compare Thread vs Process
+**Objective**: Understand differences between threads and processes.
 
-Analyze this code for thread safety issues:
-
-```bash
-# Shared resource
-FILE="/tmp/shared.txt"
-echo "0" > $FILE
-
-# Multiple threads trying to increment
-for i in {1..10}; do
-    {
-        value=$(cat $FILE)
-        sleep 0.1  # Simulate processing
-        echo $((value + 1)) > $FILE
-    } &
-done
-wait
-
-echo "Final value: $(cat $FILE)"
-```
-
-1. What is thread safety?
-2. Why is this code NOT thread-safe?
-3. How would you fix it?
-4. What is a mutex/lock?
+**Task**:
+- Show bash process info: `ps -eLf | grep bash | head -3`
+- Show thread count: `grep Threads /proc/$$/status`
+- Start a background process: `bash &`
+- How many threads does it have?
+- What's the difference in memory?
 
 ---
 
-## Exercise 5: Mutual Exclusion with flock (Medium)
+### Exercise 4: Observe Lock Blocking
+**Objective**: See how locks prevent concurrent access.
 
-Implement thread-safe file access:
-
-```bash
-FILE="/tmp/shared.txt"
-LOCK="/tmp/shared.lock"
-
-# Safe increment function
-safe_increment() {
-    exec 200> $LOCK
-    flock 200
-    value=$(cat $FILE)
-    echo $((value + 1)) > $FILE
-    flock -u 200
-}
-
-echo "0" > $FILE
-for i in {1..10}; do
-    safe_increment &
-done
-wait
-
-echo "Final value: $(cat $FILE)"
-```
-
-1. What does `flock` do?
-2. Run the test and verify the final value
-3. Compare with non-locked version
+**Task**:
+- Create a critical section with flock
+- Have one process hold lock for 5 seconds
+- Try to acquire lock from another terminal
+- Time how long second process waits
+- After first releases, second acquires immediately
 
 ---
 
-## Exercise 6: Deadlock Scenario (Medium)
+### Exercise 5: Demonstrate Critical Section
+**Objective**: Show importance of atomic operations.
 
-Create a deadlock example:
-
-```bash
-# Resource A and B
-touch /tmp/resource_a
-touch /tmp/resource_b
-
-# Thread 1: Lock A, then try to lock B
-(
-    exec 300>/tmp/resource_a
-    flock 300
-    echo "Thread 1: Locked A"
-    sleep 2
-    echo "Thread 1: Trying to lock B..."
-    exec 301>/tmp/resource_b
-    flock 301
-    echo "Thread 1: Locked B"
-) &
-
-# Thread 2: Lock B, then try to lock A
-(
-    exec 301>/tmp/resource_b
-    flock 301
-    echo "Thread 2: Locked B"
-    sleep 2
-    echo "Thread 2: Trying to lock A..."
-    exec 300>/tmp/resource_a
-    flock 300
-    echo "Thread 2: Locked A"
-) &
-
-wait
-```
-
-1. Run this and observe what happens
-2. What is a deadlock?
-3. How can you prevent deadlocks?
+**Task**:
+- Create shared file with counter = 0
+- Write function: read, increment, write
+- Run 10 concurrent increments WITHOUT lock
+- Run 10 concurrent increments WITH lock
+- Compare results in both cases
 
 ---
 
-## Exercise 7: Thread Pool Concept (Medium)
+## Medium Exercises (6-10)
 
-Implement a simple thread pool pattern:
+### Exercise 6: Deadlock Scenario
+**Objective**: Create and understand deadlock.
 
-```bash
-#!/bin/bash
-POOL_SIZE=4
-WORK_QUEUE="/tmp/work_queue"
-RESULTS="/tmp/results"
-
-# Create queue
-rm -f $WORK_QUEUE
-mkfifo $WORK_QUEUE
-
-# Worker function
-worker() {
-    while read task; do
-        echo "Processing: $task"
-        sleep 1
-        echo "Completed: $task" >> $RESULTS
-    done < $WORK_QUEUE
-}
-
-# Start workers
-for i in $(seq 1 $POOL_SIZE); do
-    worker &
-done
-
-# Submit tasks
-for task in task1 task2 task3 task4 task5; do
-    echo $task > $WORK_QUEUE &
-done
-
-wait
-cat $RESULTS
-```
-
-1. What is a thread pool?
-2. How many workers are processing tasks?
-3. How does this improve performance?
+**Task**:
+- Create two lock files: lock1, lock2
+- Process A: acquire lock1, wait 2s, acquire lock2
+- Process B: acquire lock2, wait 2s, acquire lock1
+- Run both concurrently
+- Both processes hang (deadlock!)
+- Kill with Ctrl+C or from another terminal
 
 ---
 
-## Exercise 8: Semaphore Pattern (Medium)
+### Exercise 7: Lock Ordering Prevention
+**Objective**: Fix deadlock with consistent lock ordering.
 
-Implement resource limiting with semaphores:
-
-```bash
-#!/bin/bash
-# Only 2 threads can access resource at once
-
-SEMAPHORE="/tmp/sem"
-MAX_PERMITS=2
-
-# Initialize
-for i in $(seq 1 $MAX_PERMITS); do
-    echo "available" >> $SEMAPHORE
-done
-
-# Acquire semaphore
-acquire() {
-    flock 300
-    if [ $(wc -l < $SEMAPHORE) -gt 0 ]; then
-        head -n1 $SEMAPHORE | tail -n+2 > $SEMAPHORE.tmp
-        mv $SEMAPHORE.tmp $SEMAPHORE
-        flock -u 300
-        return 0
-    fi
-    flock -u 300
-    return 1
-}
-
-# Release semaphore
-release() {
-    flock 300
-    echo "available" >> $SEMAPHORE
-    flock -u 300
-}
-
-# Use resource
-use_resource() {
-    echo "Task $1: Entering critical section"
-    sleep 2
-    echo "Task $1: Exiting critical section"
-}
-
-# Submit tasks
-for i in {1..5}; do
-    (
-        acquire
-        use_resource $i
-        release
-    ) &
-done
-
-wait
-```
-
-1. What is a semaphore?
-2. How does this limit concurrent access?
-3. Why is this useful?
+**Task**:
+- Modify Exercise 6: always acquire locks in same order
+- Process A: lock1 then lock2
+- Process B: lock1 then lock2 (same order!)
+- Run concurrently
+- Processes complete without hanging
+- What's the difference?
 
 ---
 
-## Exercise 9: Producer-Consumer Problem (Medium)
+### Exercise 8: Semaphore Simulation
+**Objective**: Simulate semaphore with counter.
 
-Implement classic concurrency problem:
-
-```bash
-#!/bin/bash
-BUFFER_SIZE=5
-BUFFER="/tmp/buffer"
-
-# Initialize buffer
-echo "" > $BUFFER
-
-# Producer
-producer() {
-    for i in {1..10}; do
-        # Wait if buffer is full
-        while [ $(wc -l < $BUFFER) -gt $BUFFER_SIZE ]; do
-            sleep 0.1
-        done
-        
-        echo "Item-$i" >> $BUFFER
-        echo "Produced: Item-$i"
-        sleep $((RANDOM % 3))
-    done
-}
-
-# Consumer
-consumer() {
-    for i in {1..10}; do
-        # Wait if buffer is empty
-        while [ ! -s $BUFFER ]; do
-            sleep 0.1
-        done
-        
-        item=$(head -n1 $BUFFER)
-        tail -n+2 $BUFFER > $BUFFER.tmp
-        mv $BUFFER.tmp $BUFFER
-        echo "Consumed: $item"
-        sleep $((RANDOM % 3))
-    done
-}
-
-producer &
-consumer &
-
-wait
-```
-
-1. What is the producer-consumer problem?
-2. How does the buffer control flow?
-3. What could go wrong in this implementation?
+**Task**:
+- Create resource file: `/tmp/semaphore` with count = 3
+- Write acquire function: decrement while waiting
+- Write release function: increment
+- Run 5 concurrent tasks, each holds resource for 1s
+- Only 3 should run simultaneously
+- Others wait their turn
 
 ---
 
-## Exercise 10: Concurrency Issues in Real Code (Medium)
+### Exercise 9: Reader-Writer Problem
+**Objective**: Understand read vs write locking.
 
-Analyze this multi-threaded scenario:
-
-```bash
-#!/bin/bash
-# Web request handling
-
-LOG="/tmp/requests.log"
-
-# Simulate web request handler
-handle_request() {
-    request_id=$1
-    
-    # Log request (NOT THREAD-SAFE!)
-    echo "Request-$request_id starting" >> $LOG
-    
-    # Simulate processing
-    sleep 1
-    
-    # Update counter (NOT THREAD-SAFE!)
-    count=$(cat /tmp/request_count 2>/dev/null || echo 0)
-    echo $((count + 1)) > /tmp/request_count
-    
-    echo "Request-$request_id completed" >> $LOG
-}
-
-# Handle multiple concurrent requests
-echo "0" > /tmp/request_count
-for i in {1..10}; do
-    handle_request $i &
-done
-
-wait
-echo "Total requests processed: $(cat /tmp/request_count)"
-```
-
-1. What thread safety issues exist?
-2. Rewrite this to be thread-safe
-3. How would you handle this in production?
-4. What monitoring would you add?
+**Task**:
+- Data file that's frequently read, rarely written
+- Multiple readers access simultaneously (fast)
+- Single writer needs exclusive access (rare)
+- Readers should block writer, not each other
+- Design with flock for write-exclusive scenario
 
 ---
+
+### Exercise 10: Measure Lock Contention
+**Objective**: Analyze performance impact of locks.
+
+**Task**:
+- Write loop that 1000x increments counter
+- Measure time WITHOUT lock
+- Measure time WITH lock
+- Calculate overhead percentage
+- Increase threads to 10x, compare overhead
+- What conclusion about lock cost?
+
+---
+
+## Submission Tips
+
+1. Test race conditions multiple times (behavior varies)
+2. Use `ps -eLf` to track processes and threads
+3. Use `lsof /tmp/` to see lock files in use
+4. Add timestamps to understand execution order
+5. Practice lock ordering to prevent deadlocks

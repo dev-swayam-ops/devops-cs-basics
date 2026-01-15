@@ -2,161 +2,175 @@
 
 ## What You'll Learn
 
-Master distributed systems foundations:
-- Distributed system characteristics
+- Distributed systems fundamentals
 - CAP theorem (Consistency, Availability, Partition tolerance)
+- Replication and partitioning
 - Consensus algorithms
 - Eventual consistency
-- Replication and sharding
+- Service discovery
+- Load balancing
 - Fault tolerance
-- Network partition handling
-- Distributed debugging
 
 ## Prerequisites
 
 - Completed **10-scheduling-and-performance**
-- Understanding of networking and databases
-- Systems thinking
+- Understanding of networking
+- Basic client-server concepts
 
 ## Key Concepts
 
-### 1. CAP Theorem
+### 1. Distributed System Properties
+```
+Multiple machines
+Network communication
+Shared state
+Partial failures (some nodes down)
+No shared clock
+Asynchronous
+```
+
+### 2. CAP Theorem
 - **Consistency**: All nodes see same data
-- **Availability**: System always responsive
-- **Partition Tolerance**: Works during network partition
-- **Trade-off**: Can have 2/3, not all 3
+- **Availability**: Always responsive
+- **Partition tolerance**: Works despite network split
+- Pick 2 of 3 in network partition
 
-### 2. Replication Models
-- **Master-Slave**: One writes, others replicate
-- **Master-Master**: Multiple writes, conflict resolution
-- **Peer-to-Peer**: All nodes equal, gossip protocol
-- **Quorum**: Majority must agree for consistency
+### 3. Replication
+- **Master-slave**: One writes, copies to slaves
+- **Master-master**: Multiple write (conflict risk)
+- **Quorum**: Majority vote (N/2 + 1)
 
-### 3. Consensus Algorithms
-- **Raft**: Easier to understand, leader-based
-- **Paxos**: Complex, academic gold standard
-- **PBFT**: Practical Byzantine Fault Tolerance
-- **Gossip**: Eventual consistency via propagation
+### 4. Partitioning
+- Data split across nodes
+- Reduce per-node load
+- Range-based or hash-based
 
-### 4. Failure Modes
-- **Fail-stop**: Node stops responding
-- **Byzantine**: Node sends wrong data
-- **Partition**: Network split, nodes unreachable
-- **Cascade**: One failure causes others
+### 5. Consensus
+- **Raft**: Replicated state machine
+- **Paxos**: Complex, powerful
+- **Two-phase commit**: All or nothing
 
-## Hands-on Lab: Distributed Concepts
+## Hands-on Lab: Service Discovery and Health Checks
 
-### Lab Steps
+### Lab Overview
+Simulate distributed service discovery and health monitoring.
+
+### Lab Commands
 
 ```bash
-# 1. Simulate multiple servers locally
-# Terminal 1
-python3 -m http.server 8001
+# 1. Simulate service with PID file
+sleep 1000 & echo $! > service.pid
 
-# Terminal 2
-python3 -m http.server 8002
+# 2. Check if service running
+if [ -f service.pid ] && kill -0 $(cat service.pid); then
+  echo "Service up"
+fi
 
-# Terminal 3
-for i in {1..5}; do curl http://localhost:8001; done
-for i in {1..5}; do curl http://localhost:8002; done
+# Expected: Service up
 
-# 2. Monitor network latency
-ping -c 5 localhost
-ping -c 5 8.8.8.8
+# 3. Health check (simulate endpoint)
+# Create mock: echo "healthy" > health.txt
+cat health.txt
 
-# 3. Simulate network partition
-sudo iptables -A OUTPUT -d 127.0.0.2 -j DROP  # Block 127.0.0.2
-sudo iptables -D OUTPUT -d 127.0.0.2 -j DROP  # Unblock
+# Expected: healthy
 
-# 4. Redis replication
-redis-cli > SLAVEOF NO ONE    # Stop replication
-redis-cli > SLAVEOF localhost 6379
+# 4. Service registry (JSON file)
+echo '{"services": [{"name": "web", "ip": "10.0.0.1", "port": 8080}]}' > services.json
+cat services.json
 
-# 5. Check replication lag
-redis-cli INFO replication
+# Expected: (JSON output)
 
-# 6. Simulate failure with timeout
-timeout 5 sleep 100 &
-sleep 2
-kill -STOP $!
-sleep 2
-kill -CONT $!
+# 5. Load balancer round-robin
+ips=("10.0.0.1" "10.0.0.2" "10.0.0.3")
+for ((i=0; i<5; i++)); do
+  echo "Route to: ${ips[$((i % 3))]}"
+done
 
-# 7. Network tool for latency injection
-# Install: sudo apt-get install iproute2
-sudo tc qdisc add dev lo root netem delay 100ms
-sudo tc qdisc show dev lo
-sudo tc qdisc del dev lo root
+# Expected: (rotating through IPs)
 
-# 8. Monitor system under load
-ab -n 1000 -c 10 http://localhost:8001/
+# 6. Simulate node failure
+kill $(cat service.pid)
 
-# 9. Check replica status
-redis-cli INFO
-redis-cli CLIENT LIST
+# 7. Detect failure
+if ! kill -0 $(cat service.pid) 2>/dev/null; then
+  echo "Node down, triggering failover"
+fi
 
-# 10. Simulate cascading failure
-bash -c 'for i in {1..10}; do sleep 0.5 & done; wait'
+# Expected: Node down, triggering failover
+
+# 8. Check cluster state
+ps aux | grep sleep
+
+# Expected: (list of running services)
+
+# 9. Monitor heartbeat
+while true; do
+  date +%s
+  sleep 2
+done
+
+# (Simulates heartbeat messages)
+
+# 10. Log replication
+echo "Message 1" >> log.txt
+echo "Message 2" >> log.txt
+cat log.txt
+
+# Expected: (all messages replicated)
 ```
 
 ## Validation
 
-Verify your understanding:
-
 ```bash
-# Can you understand CAP?
+# Can you simulate service discovery?
+cat services.json && echo "✓ Discovery works"
+
+# Understand replication?
+echo "✓ Replication understood"
+
+# Know CAP theorem?
 echo "✓ CAP theorem understood"
 
-# Can you see replication?
-redis-cli INFO replication && echo "✓ Replication visible"
-
-# Can you add network latency?
-echo "✓ Network simulation understood"
-
-# Can you understand failure modes?
-echo "✓ Failure concepts understood"
+# Handle failures?
+echo "✓ Failure handling known"
 ```
 
 ## Cleanup
 
 ```bash
-# Kill background servers
-killall python3 sleep 2>/dev/null
-
-# Remove network rules
-sudo tc qdisc del dev lo root 2>/dev/null
+# Remove test files
+rm -f service.pid services.json health.txt log.txt
+pkill -f "sleep 1000" 2>/dev/null || true
 ```
 
 ## Common Mistakes
 
-1. **Assuming network reliability**: Network partitions happen!
-2. **CAP misunderstanding**: Can't have all 3, must pick 2
-3. **Ignoring replication lag**: Slave reads may be stale
-4. **Single point of failure**: Everything else fails if leader dies
-5. **No quorum**: Minority partition can continue causing split-brain
+1. **CAP confusion**: Can't have all 3 during partition
+2. **Replication overhead**: Slower writes for consistency
+3. **Quorum size**: N/2+1, not all nodes
+4. **Network partition**: Different from node failure
+5. **Eventual consistency**: Data temporarily inconsistent
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Replication lag | Check: network, slave load, binlog position |
-| Split brain | Use: quorum, fencing, monitoring |
-| Slow consensus | Reduce: node count, network latency |
-| Data loss | Ensure: replication, backups, fsync |
-| Cascading failures | Use: circuit breakers, timeouts, rate limiting |
+| Consensus stuck | Check: network partition, quorum |
+| Data mismatch | Trigger: replication sync |
+| Node unresponsive | Check: heartbeat, timeout |
+| Partition detected | Wait for: healing or failover |
+| Service discovery stale | Update: registry TTL |
 
 ## Next Steps
 
-1. Move to **12-databases-for-devops** for storage solutions
-2. Learn about distributed tracing (Jaeger, Zipkin)
-3. Study service discovery (Consul, etcd)
-4. Explore container orchestration (Kubernetes)
-5. Learn about distributed consensus tools (etcd, Consul, Zookeeper)
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for concepts
+4. Move to **12-databases-for-devops** after completion
 
 ## Additional Resources
 
-- CAP theorem: https://en.wikipedia.org/wiki/CAP_theorem
-- Raft algorithm: https://raft.github.io/
-- Distributed systems papers: https://www.1e6.org/onlinebooks/
-- DDIA book: https://dataintensive.fun/
+- CAP: Google "CAP Theorem"
+- Raft: raft.github.io
+- Consensus: "Designing Data-Intensive Applications"
 

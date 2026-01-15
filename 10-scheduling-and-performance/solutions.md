@@ -1,172 +1,245 @@
-# 10-16: Solutions, Cheatsheets & Quizzes (Final)
+# 10 - Scheduling and Performance Solutions
 
-All solutions follow same pattern: concepts, commands, quiz answers provided in modules 08-09.
+## Easy Solutions (1-5)
 
-## Quick Solutions Reference
+### Solution 1: Check Current Load
 
-### Module 10 - Scheduling
-- CFS divides CPU time fairly
-- Load avg = processes waiting
-- Nice: -20 to +19
-- Perf for profiling
-
-### Module 11 - Distributed
-- CAP: Pick 2
-- Eventual consistency common
-- Raft consensus
-- Quorum prevents split-brain
-
-### Module 12 - Databases
-- ACID properties
-- B-tree indexing
-- Master-slave replication
-- 3-2-1 backup
-
-### Module 13 - Caching
-- LRU eviction
-- TTL expiration
-- Cache stampede lock
-- Message ordering
-
-### Module 14 - Security
-- Least privilege
-- Defense in depth
-- Encrypt everything
-- Regular patches
-
-### Module 15 - Observability
-- ELK for logs
-- Prometheus for metrics
-- Jaeger for traces
-- SLO-based alerting
-
-### Module 16 - Interview
-- Study fundamentals
-- Practice design
-- Prepare examples
-- Explain clearly
-
----
-
-## Commands Quick Reference
-
-### 10 - Scheduling
+**Command**:
 ```bash
-nice -n 10 cmd
-renice 5 -p PID
-taskset -c 0 cmd
-perf stat cmd
-stress-ng --cpu 4
+uptime
 ```
 
-### 11 - Distributed
+**Output Example**:
 ```
-Consensus: Raft, Paxos
-Replication: Master-slave, Master-master
-Monitoring: Heartbeat, health check
+14:30:45 up 3 days, 2:15, 2 users, load average: 0.45, 0.50, 0.48
 ```
 
-### 12 - Databases
+**Analysis**:
+- Load: 0.45, 0.50, 0.48 (1, 5, 15 min)
+- CPU count: `nproc` = 4 cores
+- Ratio: 0.45/4 = 0.11 (11% utilization)
+- Status: low load
+
+---
+
+### Solution 2: Monitor Load in Real-Time
+
+**Command**:
 ```bash
-EXPLAIN ANALYZE SELECT...
-CREATE INDEX idx ON col
-mysqldump db > bkp.sql
-SHOW MASTER STATUS
+watch -n 1 uptime
 ```
 
-### 13 - Caching
+**Output Example**:
+```
+Every 1.0s: uptime                 Thu Jan 15 14:30:50 2026
+14:30:50 up 3 days, 2:15, load average: 0.45, 0.50, 0.48
+```
+
+**Observation**:
+- Refreshes every 1 second
+- Load changes as processes run/finish
+- Stable system: smooth changes
+- Busy system: rapid increases
+
+---
+
+### Solution 3: Check Process Priorities
+
+**Command**:
 ```bash
-redis-cli SET key val EX 3600
-memcached -p 11211
-kafka-topics.sh --list
-rabbitmqctl list_queues
+ps -o pid,nice,cmd | head -5
 ```
 
-### 14 - Security
+**Output Example**:
+```
+PID  NI CMD
+1    0  /sbin/init
+2    0  [kthreadd]
+12   0  /lib/systemd/systemd-journald
+256  10 sshd
+```
+
+**Analysis**:
+- Default nice: 0
+- Range: -20 (highest) to 19 (lowest)
+- Lower nice = higher priority
+- Root can go negative
+
+---
+
+### Solution 4: Start Process with Nice
+
+**Command**:
 ```bash
-openssl genrsa 2048
-openssl s_client -connect :443
-iptables -L -n
-setenforce Enforcing
+nice -n 10 sleep 100 &
+ps -o pid,nice,cmd | grep sleep
 ```
 
-### 15 - Observability
+**Output Example**:
+```
+[1] 5678
+PID  NI CMD
+5678 10 sleep 100
+```
+
+**Notes**:
+- Started with nice=10 (low priority)
+- Negative nice requires root
+- `nice -n -5` (higher priority) might need sudo
+
+---
+
+### Solution 5: Change Priority with Renice
+
+**Commands**:
 ```bash
-curl localhost:9090/api/v1/query
-journalctl -xe
-grep pattern /var/log/
-curl localhost:9200/index/_search
+sleep 100 & PID=$!
+renice -n 10 -p $PID
+ps -o nice -p $PID
+```
+
+**Output Example**:
+```
+[1] 5679
+5679: old priority 0, new priority 10
+NI
+10
+```
+
+**Explanation**:
+- Changed from 0 to 10
+- Takes effect immediately
+- User can only increase nice (lower priority)
+- Negative requires root
+
+---
+
+## Medium Solutions (6-10)
+
+### Solution 6: Compare Process Scheduling
+
+**Script**:
+```bash
+nice -n -10 sleep 300 &  # High priority
+nice -n 10 sleep 300 &   # Low priority
+# Monitor CPU in top
+```
+
+**Top Output**:
+```
+High priority: uses more CPU time
+Low priority: less CPU time
+Scheduler favors high priority
 ```
 
 ---
 
-## All Quiz Answers (10-16)
+### Solution 7: Monitor Context Switches
 
-**Module 10**: CFS, Load, Nice, Priority, Switch, Affinity, Load-balance
-**Module 11**: CAP=2, Eventual, Consensus, Replication, Raft, Heartbeat, Byzantine
-**Module 12**: ACID, Index, Replica, Optimize, Shard, Backup, Failover
-**Module 13**: Invalidate, TTL, Stampede, Write-through, Redis, Order, Dead-letter
-**Module 14**: Privilege, Encrypt, Auth, TLS, 2FA, HTTPS, Audit
-**Module 15**: Logs, Metrics, Traces, SLO, Alert, Profile, Correlation
-**Module 16**: Design, Scale, Trade-off, Architecture, Pattern, Monitor, Incident
+**Command**:
+```bash
+cat /proc/self/status | grep ctxt
+```
 
----
+**Output Example**:
+```
+voluntary_ctxt_switches:        2345
+nonvoluntary_ctxt_switches:     123
+```
 
-## Key Concepts All Modules
-
-1. **Concepts**: Understand the "why"
-2. **Commands**: Know the tools
-3. **Trade-offs**: Every design has pros/cons
-4. **Real-world**: How does this apply?
-5. **Monitoring**: Observe your system
-6. **Security**: Design with security in mind
-7. **Scale**: Think about growth
-8. **Reliability**: Plan for failure
+**Explanation**:
+- Voluntary: process gave up CPU (I/O wait)
+- Non-voluntary: scheduler forced (time slice)
+- Many = high overhead
+- Few = efficient
 
 ---
 
-## Interview Readiness Checklist
+### Solution 8: Pin Process to CPU
 
-- [ ] Understand OS fundamentals deeply
-- [ ] Know process lifecycle and signals
-- [ ] Comfortable with memory management
-- [ ] Understand networking stack
-- [ ] Know filesystem concepts
-- [ ] Familiar with distributed systems theory
-- [ ] Can design at scale
-- [ ] Know database fundamentals
-- [ ] Understand caching strategies
-- [ ] Can discuss security trade-offs
-- [ ] Know observability tools
-- [ ] Can explain trade-offs clearly
-- [ ] Have project examples ready
-- [ ] Can solve problems step-by-step
-- [ ] Understand DevOps tools ecosystem
+**Commands**:
+```bash
+taskset -c 0 sleep 100 &
+PID=$!
+taskset -cp $PID          # Check affinity
+taskset -cp 0,1 $PID      # Pin to 0,1
+```
 
----
+**Output Example**:
+```
+pid 5680's current affinity list: 0
+pid 5680's new affinity list: 0,1
+```
 
-## Interview Success Tips
-
-1. **Listen carefully**: Understand the question
-2. **Ask clarifying questions**: Scale? Constraints?
-3. **Communicate clearly**: Explain your thinking
-4. **Discuss trade-offs**: No perfect solution
-5. **Consider failover**: How does it handle failure?
-6. **Monitor everything**: What gets measured?
-7. **Optimize iteratively**: Start simple, scale later
-8. **Learn from failures**: Document incidents
-9. **Ask for feedback**: How did you do?
-10. **Keep learning**: Industry evolves
+**Benefits**:
+- Reduces cache misses
+- Improves locality
+- Better performance
+- Useful for NUMA systems
 
 ---
 
-## Resources for Further Learning
+### Solution 9: Load Balance Check
 
-- Linux man pages: `man 7 signal`, `man 2 fork`
-- Papers: Raft, Paxos, CAP Theorem
-- Books: "Systems Performance", "Designing Data-Intensive Applications"
-- Practice: LeetCode system design, real projects
-- Tools: Docker, Kubernetes, Terraform, Prometheus
-- Communities: Stack Overflow, DevOps subreddits, local meetups
+**Command**:
+```bash
+top        # Press 1 for per-CPU load
+```
+
+**Output Example**:
+```
+%Cpu0: 45.0 us, 5.0 sy
+%Cpu1: 32.0 us, 8.0 sy
+%Cpu2: 10.0 us, 2.0 sy
+%Cpu3: 8.0 us, 1.0 sy
+```
+
+**Analysis**:
+- Unbalanced: CPU0 > others
+- Check process distribution
+- Some processes pinned?
+- Load balancer working?
 
 ---
+
+### Solution 10: Simulate High Load
+
+**Script**:
+```bash
+for i in {1..4}; do while true; do :; done & done
+uptime      # Check load
+ps aux | wc -l    # Count processes
+pkill -f "while true" # Cleanup
+```
+
+**Output Example**:
+```
+Before: load average: 0.10
+After: load average: 3.85  (4 CPUs busy)
+Processes: increased
+```
+
+---
+
+## Quick Reference
+
+```bash
+# Load and CPU
+uptime; nproc
+
+# Process priorities
+ps -o nice,cmd
+nice -n 10 sleep 100
+renice -n 5 -p $PID
+
+# CPU affinity
+taskset -c 0 sleep 100
+taskset -cp $PID
+
+# Context switches
+cat /proc/$PID/status | grep ctxt
+
+# Performance
+top (press 1)
+watch uptime
+```

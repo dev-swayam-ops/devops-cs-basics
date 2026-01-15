@@ -2,14 +2,12 @@
 
 ## What You'll Learn
 
-Master process management concepts:
 - Process lifecycle and states
 - Process creation with fork() and exec()
-- Parent-child relationships
+- Parent-child process relationships
 - Process signals and termination
-- Process groups and sessions
 - Background and foreground processes
-- Process monitoring and management
+- Basic process monitoring and control
 
 ## Prerequisites
 
@@ -20,128 +18,143 @@ Master process management concepts:
 ## Key Concepts
 
 ### 1. Process Lifecycle
-- **New**: Just created, not yet running
-- **Running**: Executing on CPU
-- **Waiting**: Blocked, waiting for resource
-- **Stopped**: Suspended by signal
-- **Zombie**: Terminated but parent hasn't cleaned up
-- **Terminated**: Exited completely
+- **Creation**: Parent calls fork() → child process created
+- **Running**: Process executes instructions on CPU
+- **Waiting**: Process blocked waiting for resource (I/O, input, etc.)
+- **Stopped**: Suspended by signal (SIGSTOP)
+- **Zombie**: Terminated but parent hasn't cleaned up with wait()
+- **Terminated**: Process completely exited
 
-### 2. Process Creation (fork + exec)
-- fork() creates child process (copy of parent)
-- exec() replaces process memory with new program
-- Parent and child continue independently
+### 2. Process Creation
+- **fork()**: Creates exact copy of parent process
+- **exec()**: Replaces process memory with new program
+- **fork() + exec()**: Standard way to launch new program
+- Parent and child continue independently after fork()
 
 ### 3. Process Signals
-- **SIGTERM** (15): Graceful termination request
-- **SIGKILL** (9): Forced termination (can't catch)
-- **SIGSTOP** (19): Suspend process
-- **SIGCONT** (18): Resume process
-- **SIGHUP** (1): Hangup, reload config
-- **SIGINT** (2): Interrupt (Ctrl+C)
+- **SIGTERM (15)**: Graceful termination request
+- **SIGKILL (9)**: Force termination (cannot be caught)
+- **SIGSTOP (19)**: Suspend process (cannot be caught)
+- **SIGCONT (18)**: Resume suspended process
+- **SIGCHLD**: Child process terminated
 
-### 4. Process Groups
-- Multiple processes can belong to one group
-- Signals sent to group affect all processes
-- Session: Collection of process groups
+### 4. Process Control
+- **Foreground**: Process runs until completion
+- **Background**: Process runs in background (appended with &)
+- **Jobs**: List of background processes in current shell
+- **Ctrl+Z**: Suspend current foreground process
 
 ## Hands-on Lab: Process Management
 
-### Lab Steps
+### Lab Overview
+Control processes and understand process relationships.
+
+### Lab Commands
 
 ```bash
-# 1. View process tree
-ps aux
-pstree
-
-# 2. Run process in background
+# 1. Start a background process
 sleep 3600 &
 
-# 3. List background jobs
+# Expected output:
+# [1] 2345
+
+# 2. List background jobs
 jobs -l
 
-# 4. Get process details
+# Expected output:
+# [1]+ 2345 Running   sleep 3600 &
+
+# 3. View process details
 ps -fp 2345
 
-# 5. Monitor process in real-time
-top -p 2345
+# Expected output:
+# UID  PID PPID C STIME TTY STAT TIME CMD
+# user 2345 1234 0 10:30 pts/0 S    0:00 sleep 3600
 
-# 6. Send signal to process
+# 4. Check process tree
+pstree -p $$
+
+# Expected output shows parent-child hierarchy
+
+# 5. Send SIGTERM to process
 kill -TERM 2345
 
-# 7. Create long-running process
-while true; do echo "Running"; sleep 1; done &
-BG_PID=$!
+# Expected output (in shell):
+# [1]- Terminated sleep 3600
 
-# 8. Suspend process
-kill -STOP $BG_PID
+# 6. Start another background process
+sleep 7200 &
 
-# 9. Resume process
-kill -CONT $BG_PID
+# 7. Suspend current shell
+Ctrl+Z  # (Don't actually run - demonstration)
 
-# 10. Kill process by name
+# 8. Resume in background
+bg
+
+# 9. Bring to foreground
+fg %1
+
+# 10. Kill by name (after starting another)
+sleep 500 &
 killall sleep
 ```
 
 ## Validation
 
-Verify your process management skills:
+Verify your understanding:
 
 ```bash
-# Can you view process trees?
-pstree && echo "✓ Process tree works"
-
-# Can you run background jobs?
-sleep 100 & jobs -l && kill %1
+# Can you start background jobs?
+sleep 100 & jobs -l
 
 # Can you send signals?
-kill -0 $$ && echo "✓ Can send signals"
+kill -0 $$ && echo "✓ Signal sending works"
 
 # Can you list processes?
 ps aux | grep bash && echo "✓ Process listing works"
+
+# Can you view process tree?
+pstree -p $$ && echo "✓ Tree viewing works"
 ```
 
 ## Cleanup
 
-Kill any remaining background processes:
-
 ```bash
-# Kill background jobs
-kill %1 %2 %3 2>/dev/null
-
-# Kill any stray sleep processes
+# Kill all sleep processes
 killall sleep 2>/dev/null
+
+# Kill any background jobs
+kill %1 %2 %3 2>/dev/null
 ```
 
 ## Common Mistakes
 
-1. **Using SIGKILL for graceful shutdown**: Use SIGTERM first, then SIGKILL
-2. **Forgetting exit codes**: Check `$?` after commands
-3. **Zombie processes**: Parent must wait() for children
+1. **Using SIGKILL immediately**: Use SIGTERM first, SIGKILL as last resort
+2. **Forgetting &**: Process runs in foreground and blocks shell
+3. **Zombie processes**: Parent must wait() for terminated children
 4. **Mixing fg/bg**: Use `fg %1`, not `fg 1`
-5. **Resource limits**: ulimit can prevent fork bombs
+5. **Lost background jobs**: Shell exit kills background processes
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Zombie processes | Kill parent process |
-| Can't kill process | Use SIGKILL (kill -9) as last resort |
-| Process won't stop | Check if ignoring SIGTERM |
-| Too many processes | Check for fork bombs, use limits |
-| Find process by name | Use: pgrep, pidof, ps grep |
+| Can't kill process | Try: `kill -9 PID` (SIGKILL) |
+| Zombie process | Kill parent process: `kill -9 PPID` |
+| Process won't start | Check: file exists, executable, permissions |
+| Background job suspended | Resume: `bg` or `kill -CONT %1` |
+| Can't find process | Use: `pgrep processname` or `pidof processname` |
 
 ## Next Steps
 
-1. Move to **03-threads-and-concurrency** for concurrent execution
-2. Learn about process scheduling
-3. Study inter-process communication (IPC)
-4. Explore systemd and service management
-5. Learn container process isolation (cgroups)
+1. Complete the 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Practice with `cheatsheet.md` commands
+4. Move to **03-threads-and-concurrency** after completion
 
 ## Additional Resources
 
 - Process signals: `man 7 signal`
-- Process management: `man 2 fork`, `man 2 exec`
-- Process monitoring: `man ps`, `man top`
+- Kill command: `man kill`
+- Process management: `man ps`, `man jobs`, `man fg`
 

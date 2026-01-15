@@ -2,163 +2,170 @@
 
 ## What You'll Learn
 
-Master system calls and signal handling:
-- Common system calls and their purposes
-- Syscall lifecycle and context switching
-- Signal types and handling
-- Signal handlers and masks
-- Inter-process communication
-- Error handling and return values
-- Performance implications
+- System calls overview (fork, exec, exit, read, write)
+- Signals and signal types
+- Signal handling and trapping
+- Kill command and signal delivery
+- Process termination
+- Zombie processes
+- Signal safety
 
 ## Prerequisites
 
 - Completed **08-linux-kernel-basics**
-- Understanding of processes and kernel
-- Basic C knowledge helpful
+- Understanding of processes
+- Basic bash scripting
 
 ## Key Concepts
 
 ### 1. Common System Calls
-- **File I/O**: open(), close(), read(), write()
-- **Process**: fork(), exec(), exit(), wait()
-- **Memory**: mmap(), brk()
-- **IPC**: pipe(), socket(), msgget()
-- **Signals**: kill(), signal(), sigaction()
-- **Time**: sleep(), nanosleep(), time()
+- **fork**: Create child process (copy of parent)
+- **exec**: Replace process with new program
+- **exit**: Terminate process
+- **read**: Read from file/socket
+- **write**: Write to file/socket
+- **open/close**: File operations
 
-### 2. System Call Process
+### 2. Signal Types
 ```
-User Space
-  |
-  | context switch
-  v
-Kernel Space (privileged mode)
-  - Perform operation
-  - Access hardware
-  |
-  | context switch
-  v
-User Space
-  - Return value or error
+SIGTERM (15): Graceful termination (default)
+SIGKILL (9):  Forced kill (can't catch)
+SIGSTOP (19): Pause process (can't catch)
+SIGCONT (18): Resume process
+SIGHUP (1):   Hangup (terminal closed)
+SIGINT (2):   Interrupt (Ctrl+C)
+SIGQUIT (3):  Quit (Ctrl+\)
+SIGUSR1 (10): User-defined
+SIGUSR2 (12): User-defined
+SIGCHLD (17): Child terminated
 ```
 
-### 3. Signal Types
-- **SIGTERM (15)**: Graceful termination
-- **SIGKILL (9)**: Force termination (uncatchable)
-- **SIGSTOP (19)**: Suspend (uncatchable)
-- **SIGCONT (18)**: Resume
-- **SIGCHLD**: Child process terminated
-- **SIGUSR1, SIGUSR2**: User-defined
+### 3. Signal Flow
+```
+Signal sent → Delivered to process → Handler executed → Process resumes
+(or default action)
+```
 
-### 4. Error Handling
-- Check return value of every syscall!
-- Negative return = error
-- errno variable contains error code
-- strerror() or perror() to get message
+### 4. Zombie Processes
+- Child finishes, parent hasn't reaped (read exit status)
+- Stays in process table until parent calls wait()
+- Not dangerous, but wastes PID
 
-## Hands-on Lab: System Calls and Signals
+### 5. Signal Safety
+- Some functions unsafe in signal handlers
+- Use async-signal-safe functions only
 
-### Lab Steps
+## Hands-on Lab: Signals and Process Control
+
+### Lab Overview
+Send signals, handle them, observe process behavior.
+
+### Lab Commands
 
 ```bash
-# 1. Trace system calls
-strace ls /tmp
-strace -e open,read cat /etc/hostname
+# 1. List all signals
+kill -l
 
-# 2. Count syscalls
-strace -c ls /tmp
-strace -c curl http://example.com | head
+# Expected: (all 64 signals listed)
 
-# 3. Filter by syscall type
-strace -e file ls /tmp      # file operations
-strace -e process bash      # process operations
-strace -e network nc localhost 22  # network
+# 2. Start long-running process
+sleep 1000 &
 
-# 4. Show syscall arguments
-strace -v -e write bash -c "echo hello"
+# Expected: [1] 12345
 
-# 5. Catch signals
-bash -c 'trap "echo caught SIGTERM" TERM; sleep 100' &
-sleep 1
+# 3. Send SIGTERM (graceful)
+kill -TERM %1
+
+# Expected: (process terminates)
+
+# 4. Send SIGKILL (force)
+sleep 1000 & sleep 1 && kill -9 %1
+
+# Expected: (killed forcefully)
+
+# 5. Send signal by name
+kill -SIGTERM $(pgrep sleep)
+
+# Expected: (process exits)
+
+# 6. Pause and resume process
+sleep 1000 & sleep 1 && kill -STOP %1
+kill -CONT %1
+
+# Expected: (process paused, then resumes)
+
+# 7. Trap signal in bash
+bash -c 'trap "echo Caught SIGTERM" TERM; sleep 10' & 
 kill -TERM $!
 
-# 6. Send custom signals
-bash -c 'trap "echo USR1" USR1; sleep 100' &
-BASH_PID=$!
-kill -USR1 $BASH_PID
-kill -TERM $BASH_PID
+# Expected: Caught SIGTERM
 
-# 7. Block signals (bash built-in)
-bash -c 'set -b; trap "" TERM; sleep 10 &' &
-sleep 1
+# 8. Ignore signal
+bash -c 'trap "" TERM; sleep 10' &
 kill -TERM $!
 
-# 8. Examine /proc for signals
-cat /proc/$$/status | grep -i sig
+# Expected: (no output, process continues)
 
-# 9. Use timeout for syscall limits
-timeout 5 sleep 100
-echo "Exit code: $?"
+# 9. Check for zombie
+sleep 1000 & sleep 1 && kill -9 $!
+ps aux | grep defunct
 
-# 10. System call timing
-time strace -c curl http://example.com
+# Expected: (zombie process visible)
+
+# 10. Send signal to all processes
+pkill -SIGTERM sleep
+
+# Expected: (all sleep processes terminate)
 ```
 
 ## Validation
 
-Verify your understanding:
-
 ```bash
-# Can you trace syscalls?
-strace echo "test" && echo "✓ Syscall tracing works"
+# Can you list signals?
+kill -l && echo "✓ Signals listed"
 
-# Can you count syscalls?
-strace -c echo "test" && echo "✓ Syscall counting works"
+# Send signals?
+sleep 5 & kill -TERM $! && echo "✓ Signal sent"
 
-# Can you send signals?
-bash -c 'sleep 100' & kill -0 $! && echo "✓ Signal sending works"
-
-# Can you understand context switching?
-echo "✓ Context switch concepts understood"
+# Trap signals?
+bash -c 'trap "echo OK" TERM' && echo "✓ Trap works"
 ```
 
 ## Cleanup
 
 ```bash
-killall sleep bash strace 2>/dev/null
+# Kill any remaining processes
+pkill -9 sleep 2>/dev/null || true
 ```
 
 ## Common Mistakes
 
-1. **Ignoring syscall errors**: Always check return values!
-2. **Uncatchable signals**: Can't catch SIGKILL or SIGSTOP
-3. **Signal handler side effects**: Keep handlers simple
-4. **Blocking in signal handler**: Can cause deadlock
-5. **System call interruption**: Need SA_RESTART flag
+1. **SIGKILL vs SIGTERM**: SIGKILL forces, SIGTERM asks nicely
+2. **Zombie handling**: Need parent to wait() for child
+3. **Trap placement**: Must be early in script
+4. **Signal numbers**: Different systems may vary
+5. **Multiple signals**: Can't queue (only one of each)
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Syscall fails | Check: return value, errno, strace output |
-| Signal not delivered | Check: process alive, signal not blocked |
-| Slow syscalls | Profile: strace -c, reduce syscall count |
-| Zombie processes | Ensure: parent calls wait() for children |
-| Race condition | Synchronize: signals, IPC, atomicity |
+| Process won't die | Use: kill -9 (SIGKILL) |
+| Trap not working | Check: syntax, signal name |
+| Zombie process | Parent not calling wait() |
+| Signal not received | Check: process group, permissions |
+| Process ignores signal | May have trap "" (ignoring) |
 
 ## Next Steps
 
-1. Move to **10-scheduling-and-performance** for optimization
-2. Learn about advanced IPC (pipes, sockets, semaphores)
-3. Study signal-safe functions
-4. Explore real-time signals
-5. Learn about seccomp for syscall filtering
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **10-scheduling-and-performance** after completion
 
 ## Additional Resources
 
-- System calls: `man 2 syscalls`
-- Signals: `man 7 signal`, `man 2 sigaction`
-- strace: `man strace`
-- System call reference: https://man7.org/linux/man-pages/
+- Signals: `man 7 signal`, `man 2 kill`
+- Trap: `man bash` (search "trap")
+- Kill: `man kill`, `man pkill`
 

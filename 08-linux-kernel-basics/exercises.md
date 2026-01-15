@@ -1,96 +1,132 @@
-# 08 - Linux Kernel Basics: Exercises
+# 08 - Linux Kernel Basics Exercises
 
-1. **Kernel Version**: `uname -r` - What's your kernel? What do version numbers mean?
+## Easy Exercises (1-5)
 
-2. **Boot Process**: Research: BIOS → Bootloader → Kernel → Init. Stages and time for each?
+### Exercise 1: Check Kernel Version
+**Objective**: Know your kernel.
 
-3. **Kernel Modules**: `lsmod` shows loaded. `modprobe module_name` to load. Why modules instead of monolithic?
-
-4. **dmesg Logs**: `dmesg` shows kernel messages. Find: boot messages, errors, hardware detection.
-
-5. **Kernel Parameters**: `cat /proc/sys/vm/swappiness` - Tune kernel behavior without restart.
-
-6. **System Calls**: `strace ls` - See syscalls. Count calls: `strace -c ls /etc`
-
-7. **Kernel Ring Buffers**: Limited buffer size. `dmesg -e` shows human timestamps. Can they wrap around?
-
-8. **EBPF Programs**: Modern kernel feature. Research and understand kernel-space tracing.
-
-9. **Kernel Panics**: What causes them? How to debug? `echo "panic: test" | kexec_load`
-
-10. **Custom Kernel**: When would DevOps compile custom kernel? Security/performance trade-offs?
+**Task**:
+- Run: `uname -a`
+- What's kernel version?
+- What's hardware? (x86_64, arm?)
+- How many processors?
+- When was it built? (date in output?)
 
 ---
 
-## Solutions
+### Exercise 2: List Kernel Modules
+**Objective**: See loaded drivers.
 
-**Q1**: `5.15.0-91-generic` = Major.Minor.Patch-Release
-
-**Q2**: Bootloader loads kernel, kernel mounts root fs, starts init process (systemd)
-
-**Q3**: Modules loaded on demand, saves memory vs monolithic kernel always in RAM
-
-**Q4**: dmesg shows hardware detection, drivers loading, errors, kernel warnings
-
-**Q5**: `/proc/sys/` allows runtime tuning without reboot (e.g., swappiness)
-
-**Q6**: Syscalls shown by strace; count with `strace -c`. ls makes ~60 syscalls.
-
-**Q7**: Ring buffer has fixed size. Old messages wrap. `dmesg -n7` to filter warnings/errors
-
-**Q8**: eBPF allows user-space control of kernel-space tracing (observability)
-
-**Q9**: OOM killer, memory corruption, driver bugs cause panics. Debug with serial console/kdump
-
-**Q10**: Custom kernel for security patches, old hardware support, security features (SELinux)
+**Task**:
+- Run: `lsmod | head -10`
+- Which modules loaded?
+- What's "Size"? (memory)
+- What's "Used by"? (dependencies)
+- Find a module you recognize
 
 ---
 
-## Cheatsheet
+### Exercise 3: View Kernel Messages
+**Objective**: Understand boot process.
 
-```bash
-uname -a              # Full kernel info
-uname -r              # Release version
-cat /proc/version     # Kernel version details
-lsmod                 # Loaded modules
-modprobe module       # Load module
-rmmod module          # Unload module
-dmesg                 # Kernel messages
-dmesg -T              # Kernel messages with time
-dmesg -n 7            # Filter level
-/proc/sys/            # Kernel parameters
-sysctl parameter      # View/set parameters
-systool               # Kernel module info
-cat /proc/interrupts  # IRQ statistics
-cat /proc/iomem       # Memory map
-```
-
-## Quiz
-
-**Q1**: Linux kernel runs in?
-A) User mode  B) **Kernel mode** C) Ring 3 D) Application space
-
-**Q2**: Bootloader loads what?
-A) Init  B) **Kernel** C) systemd D) Application
-
-**Q3**: Modules vs monolithic?
-A) Same thing  B) **Modules load on demand** C) Monolithic faster D) Same speed
-
-**Q4**: dmesg shows?
-A) User logs  B) **Kernel messages** C) Application errors D) Hardware list
-
-**Q5**: /proc/sys used for?
-A) Running processes  B) **Kernel parameters** C) File info D) Process info
-
-**Q6**: strace shows?
-A) Memory trace  B) **System calls** C) CPU usage D) I/O operations
-
-**Q7**: What is eBPF?
-A) File format  B) **Kernel tracing** C) Boot format D) Ethernet protocol
-
-**Short Answers**:
-- **Q8**: What happens during boot? (BIOS → Bootloader → Kernel → Init)
-- **Q9**: When customize kernel? (Security patches, old hardware, features)
-- **Q10**: Design kernel monitoring (Watch dmesg, check panics, monitor modules)
+**Task**:
+- Run: `dmesg | head -20`
+- What's first message? (kernel version)
+- What's CPU info?
+- What's memory info? (RAM detected)
+- What about errors? (usually none)
 
 ---
+
+### Exercise 4: Check Process Limits
+**Objective**: Understand kernel limits.
+
+**Task**:
+- Run: `sysctl kernel.pid_max`
+- What's max PID? (usually 4194304)
+- Run: `sysctl kernel.shmmax`
+- What's max shared memory?
+- Why limits needed?
+
+---
+
+### Exercise 5: View Kernel Parameters
+**Objective**: Explore configuration.
+
+**Task**:
+- Run: `sysctl -a | grep -E "^\w+\..*=" | head`
+- How many parameters?
+- What's difference: kernel.* vs fs.* vs vm.*?
+- Pick one, understand what it does
+
+---
+
+## Medium Exercises (6-10)
+
+### Exercise 6: Find Errors in dmesg
+**Objective**: Identify problems.
+
+**Task**:
+- Run: `dmesg | grep -iE "(error|warn|fail)"`
+- Any errors found?
+- If yes, what type? (driver, firmware?)
+- How long ago? (timestamp)
+- Are they critical?
+
+---
+
+### Exercise 7: Check CPU Information
+**Objective**: Analyze processor details.
+
+**Task**:
+- Run: `cat /proc/cpuinfo`
+- How many cores?
+- What's CPU model?
+- What's processor speed? (GHz)
+- Run: `nproc` for count
+
+---
+
+### Exercise 8: Understand Module Dependencies
+**Objective**: See how modules relate.
+
+**Task**:
+- Run: `lsmod`
+- Pick a module with "Used by" count
+- What modules depend on it?
+- Try: `modinfo module_name` (if available)
+- What's purpose of module?
+
+---
+
+### Exercise 9: Check System Memory Limits
+**Objective**: Know kernel memory settings.
+
+**Task**:
+- Run: `sysctl vm.swappiness`
+- What's value? (0-100)
+- Run: `sysctl kernel.shmmax`
+- What's max shared memory?
+- Run: `free -h` (compare)
+
+---
+
+### Exercise 10: Compare Kernel Versions
+**Objective**: Understand versioning.
+
+**Task**:
+- Run: `uname -r`
+- Format: major.minor.patch-build
+- What's major version? (5, 4?)
+- What does patch number mean?
+- Check: which is newer, 5.10 or 5.15?
+
+---
+
+## Submission Tips
+
+1. Use `uname -a` for complete kernel info
+2. Use `lsmod` frequently (shows current state)
+3. dmesg shows boot messages (scroll for history)
+4. sysctl parameters are dynamic
+5. Remember: changes lost on reboot unless in /etc/sysctl.conf

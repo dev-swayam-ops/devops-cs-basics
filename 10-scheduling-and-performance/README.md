@@ -2,149 +2,177 @@
 
 ## What You'll Learn
 
-Master CPU scheduling and performance optimization:
-- Scheduling algorithms and policies
-- CPU load and utilization
-- Context switching overhead
-- Performance profiling and bottleneck identification
-- CPU affinity and pinning
-- Latency vs throughput tradeoffs
-- Monitoring tools and metrics
+- Process scheduling fundamentals
+- CPU scheduling algorithms
+- Process priorities (nice, renice)
+- Load average and system load
+- Context switching
+- Performance measurement
+- Process affinity (CPU pinning)
 
 ## Prerequisites
 
 - Completed **09-system-calls-and-signals**
 - Understanding of processes and CPU
-- Linux command-line skills
+- Basic performance concepts
 
 ## Key Concepts
 
-### 1. Scheduling Algorithms
-- **FIFO**: First-in-first-out (no preemption)
-- **Round-Robin**: Each process gets time slice
-- **Priority Queue**: Higher priority processes first
-- **Completely Fair Scheduler (CFS)**: Kernel default, fair CPU allocation
-- **Multi-queue**: Different priority levels
+### 1. Process Scheduler
+- Time slices (quantum): ~10ms per process
+- Ready queue: waiting processes
+- Runnable state: waiting for CPU
+- Preemption: scheduler takes CPU back
 
-### 2. Load Average
-- 1-minute, 5-minute, 15-minute averages
-- Represents runnable processes (on queue waiting CPU)
-- Load of 1 = single CPU at 100%
-- Load of 4 = quad CPU at 100% (or similar equivalent)
+### 2. Priority (Nice)
+```
+Nice range: -20 (highest) to 19 (lowest)
+Default: 0
+Lower nice = higher priority
+Real-time: -100 to -51 (kernel reserved)
+```
 
-### 3. Context Switch Cost
-- Switching out process state (registers, memory)
-- TLB flush (address translation cache)
-- CPU cache thrashing
-- More switches = more overhead
+### 3. Load Average
+```
+Load 1.0 = 1 CPU fully used
+Load 2.0 = 2 CPUs fully used (or 1 CPU overloaded)
+Load 0.5 = 1 CPU half used
+Numbers: 1-min, 5-min, 15-min averages
+```
 
-### 4. Performance Metrics
-- **CPU Utilization**: % of CPU in use
-- **Throughput**: Operations/second
-- **Latency**: Time for single operation
-- **Cache hit rate**: Data in fast cache vs main memory
+### 4. Context Switch
+- Save CPU state
+- Load new process state
+- Expensive operation
+- More switching = worse performance
 
-## Hands-on Lab: CPU Scheduling and Performance
+### 5. CPU Affinity
+- Pin process to specific CPU
+- Reduce cache misses
+- Improve performance
 
-### Lab Steps
+## Hands-on Lab: Scheduling and Load
+
+### Lab Overview
+Monitor scheduling, adjust priorities, measure load.
+
+### Lab Commands
 
 ```bash
-# 1. Check load average
+# 1. Show load average
 uptime
-cat /proc/loadavg
 
-# 2. View process priorities
-ps aux -o pid,pri,nice,cmd | head -20
-nice -n 10 sleep 100
+# Expected:
+# 12:30:45 up 2 days, load average: 0.25, 0.30, 0.35
 
-# 3. Change process priority
-renice -n 5 -p $$
-renice -n -5 -p $$  # negative = higher priority
+# 2. Watch load in real-time
+watch -n 1 uptime
 
-# 4. Monitor CPU usage
-top -b -n 1 | head -20
-watch -n 1 'top -b -n 1 | head -20'
+# Expected: (refreshes every second)
 
-# 5. CPU-intensive task
-for i in {1..4}; do sha256sum /dev/zero &; done
-watch -n 1 'uptime; ps aux | grep sha256sum'
+# 3. Check process priority
+ps -o pid,nice,cmd | head
 
-# 6. CPU affinity - pin to specific core
-taskset -c 0 sha256sum /dev/zero &
-taskset -c 1 sha256sum /dev/zero &
-taskset -p -c 0 $$  # Set current shell to core 0
+# Expected:
+# PID  NI CMD
+# 1    0  /sbin/init
+# 2    0  [kthreadd]
 
-# 7. Check context switches
-cat /proc/sched_debug | head -50
+# 4. Start process with nice
+nice -n 10 sleep 100 &
 
-# 8. Profile syscall/context switches
-strace -c sleep 1
-dstat -s --top-latency 1
+# Expected: Process starts with nice=10
 
-# 9. Monitor interrupts and context switches
-cat /proc/stat
-watch -n 1 'cat /proc/stat | head -2'
+# 5. Change priority (renice)
+renice -n 5 -p [PID]
 
-# 10. Performance profiling
-perf stat sleep 1
-perf record -g -- sleep 1
-perf report
+# Expected: (priority updated)
+
+# 6. Show CPU context switches
+cat /proc/stat | head -1
+
+# Expected:
+# cpu 10132153 290696 3084719 26399615...
+
+# 7. Monitor context switches per process
+cat /proc/[PID]/status | grep ctxt
+
+# Expected:
+# voluntary_ctxt_switches: 1234
+# nonvoluntary_ctxt_switches: 56
+
+# 8. Pin process to CPU
+taskset -c 0 sleep 100 &
+
+# Expected: Process runs on CPU 0
+
+# 9. Show CPU count
+nproc
+
+# Expected: 4 (or number of CPUs)
+
+# 10. Detailed CPU info
+cat /proc/cpuinfo | grep processor
+
+# Expected:
+# processor: 0
+# processor: 1
+# processor: 2
+# processor: 3
 ```
 
 ## Validation
 
-Verify your knowledge:
-
 ```bash
-# Can you check load average?
-uptime && echo "✓ Load average visible"
+# Can you check load?
+uptime && echo "✓ Load shown"
 
-# Can you change process priority?
-nice -n 5 sleep 1 && echo "✓ Priority change works"
+# Adjust priority?
+nice -n 10 sleep 1 && echo "✓ Nice works"
 
-# Can you set CPU affinity?
-taskset -c 0 echo "test" && echo "✓ CPU affinity works"
+# Monitor processes?
+ps -o nice,cmd | head && echo "✓ Priorities shown"
 
-# Can you profile?
-strace -c echo "test" && echo "✓ Profiling works"
+# Know CPU affinity?
+echo "✓ Affinity understood"
 ```
 
 ## Cleanup
 
 ```bash
-killall sha256sum sleep strace perf 2>/dev/null
+# Kill background processes
+pkill -9 sleep 2>/dev/null || true
 ```
 
 ## Common Mistakes
 
-1. **Ignoring load average**: 4 on single core = bad, 4 on 32-core = fine
-2. **CPU affinity without purpose**: Can reduce scheduler efficiency
-3. **Setting nice too negative**: Might starve other processes
-4. **Ignoring context switch cost**: High switches = performance loss
-5. **Not profiling before optimizing**: Optimize bottlenecks, not guesses
+1. **Nice scale**: -20 is highest, 19 is lowest (counterintuitive)
+2. **Load interpretation**: Depends on CPU count
+3. **Real-time priority**: Requires root or capability
+4. **Context switch**: Not always bad (I/O blocking)
+5. **Affinity conflicts**: Can reduce parallelism
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| High load average | Check: ps aux for CPU hogs, reduce workload |
-| Slow performance | Profile: perf stat, identify bottleneck |
-| High context switches | Check: thread count, lock contention |
-| Uneven CPU usage | Use: taskset for symmetric load |
-| Process starved | Adjust: nice priority, resource limits |
+| High load | Check: ps, identify hogs, kill or renice |
+| Too many context switches | Check: process count, thread count |
+| Low CPU usage | Check: I/O wait, blocking calls |
+| Can't renice | Check: permissions, negative nice needs root |
+| CPU not balanced | Use: taskset to redistribute |
 
 ## Next Steps
 
-1. Move to **11-distributed-systems-basics** for multi-machine scaling
-2. Learn about real-time scheduling (SCHED_FIFO, SCHED_RR)
-3. Study kernel tuning parameters
-4. Explore advanced profiling (flame graphs, perf)
-5. Learn about cgroups CPU limits
+1. Complete 10 exercises in `exercises.md`
+2. Review solutions in `solutions.md`
+3. Use `cheatsheet.md` for commands
+4. Move to **11-distributed-systems-basics** after completion
 
 ## Additional Resources
 
-- Scheduler: `man 7 sched`
-- Top: `man top`
-- Nice: `man nice`
-- Perf: `man perf`, https://www.brendangregg.com/flamegraphs.html
+- Scheduling: `man sched`, `man 2 sched_setaffinity`
+- Nice: `man nice`, `man renice`
+- Load: `man uptime`, `man 1 w`
+- Performance: `man top`, `man iostat`
 
