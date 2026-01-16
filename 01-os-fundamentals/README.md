@@ -41,7 +41,7 @@ The operating system separates execution into two distinct privilege levels to e
 - Examples: `open()`, `read()`, `write()`, `fork()`, `exit()` are all system calls
 - The context switch overhead is why minimizing system calls is important for performance
 
-#### Practical Examples: Mode Switching
+#### Practical Examples:
 
 **Example 1: Pure User Mode (No Kernel Involved)**
 ```c
@@ -75,6 +75,8 @@ close(fd);                          // System call #3
 - `close()`: Kernel releases file resources
 - These context switches have measurable performance cost - why buffering reads/writes is important
 
+**Typical 64-bit Linux systems expose 300+ system calls (often a few hundred, depending on kernel version and CPU architecture)**
+
 ### 2. Process Basics
 
 A process is the fundamental unit of execution in an operating system. Each process is an independent running instance of a program.
@@ -95,16 +97,19 @@ A process is the fundamental unit of execution in an operating system. Each proc
 **Parent Process (PPID)**
 - Every process (except the first) is created by another process called its parent
 - The parent's PID is stored as PPID in the child process
-- Processes form a tree structure with `init` (PID 1) at the root
+- Processes form a tree structure with `init`(old) (PID 1) or systemd (modern Linux) at the root
 - Useful for understanding process relationships and cleanup (when parent dies, children are orphaned)
 
 **Process State**
 - **Running (R)**: Currently executing on the CPU
 - **Sleeping/Waiting (S)**: Waiting for an event (I/O, signal, etc.) - interruptible
 - **Uninterruptible Sleep (D)**: Waiting for I/O that cannot be interrupted
-- **Zombie (Z)**: Terminated but parent hasn't read its exit status yet
+- **Zombie (Z)**: Terminated but parent hasn't read its exit status yet so waits for wait()
+- **Orphan process**: child process whose parent has terminated, but the child is still running.
 - **Stopped (T)**: Suspended via signal, waiting to be resumed
 - Processes transition between states throughout their lifetime based on events and scheduling
+
+**When you run a program, a user process (shell) requests the kernel via system calls (fork/clone + execve). The kernel creates the process, assigns PID, sets up memory/resources, then starts the program in user mode.**
 
 ### 3. System Resources
 
@@ -117,12 +122,24 @@ The OS manages several critical hardware resources that all processes need to sh
 - The scheduler decides which process gets CPU time and for how long
 - CPU-bound tasks (calculations) compete heavily for this resource
 
+*Example: CPU-bound Task (Continuous Computation)*
+```bash
+python3 -c "while True: pass"
+```
+This infinite loop keeps the CPU busy with heavy computation. Monitor with `top` to see high CPU usage (100%) and minimal memory/I/O activity. Running multiple copies causes all processes to compete for available CPU cores.
+
 **Memory (RAM)**
 - Volatile storage where the OS and all running processes keep code and data
 - Limited resource: you can't run more processes than memory allows
 - Each process gets its own address space - kernel protects processes from accessing each other's memory
 - Divided into pages (typically 4KB) by the memory management system
 - RAM is much faster than disk, which is why efficient memory use matters
+
+*Example: Memory-hungry Task (Large Allocation)*
+```bash
+python3 -c "a = 'x' * (500 * 1024 * 1024); input('Allocated 500MB RAM... Press Enter to exit')"
+```
+This allocates ~500MB of RAM and holds it. Check memory usage with `top` or `free -h`. Running multiple copies can exhaust available RAM, forcing the OS to use slower disk swap space or trigger an OOM (Out Of Memory) killer.
 
 **I/O (Input/Output)**
 - Includes disk storage, network cards, USB devices, terminals, printers
@@ -131,12 +148,32 @@ The OS manages several critical hardware resources that all processes need to sh
 - The kernel manages I/O to prevent conflicts (two processes can't write to same file simultaneously)
 - Examples: Reading from disk, sending data over network, keyboard input
 
+*Example: Disk I/O Task (Heavy Reading)*
+```bash
+cat /path/to/largefile.txt > /dev/null
+```
+This reads a large file from disk and discards output. During execution, the CPU mostly waits (blocks) while disk I/O is pending. Monitor with `iostat` to see high disk I/O. The bottleneck is disk speed, not CPU speed.
+
 **Scheduling**
 - The algorithm that decides which process runs on the CPU at any moment
 - Fair allocation: each process should get a reasonable share of CPU time
 - Context switching: the CPU rapidly switches between processes (hundreds of times per second)
 - Preemption: the kernel can forcibly pause a process to let another run
 - Without scheduling, one process could monopolize the CPU and freeze all others
+
+*Example: Two Processes Competing for CPU*
+
+Terminal 1:
+```bash
+python3 -c "while True: pass"
+```
+
+Terminal 2:
+```bash
+python3 -c "while True: pass"
+```
+
+Both processes continuously demand the CPU. The Linux scheduler rapidly switches between them (time slicing), giving each a fair share of processing time. Run `top` to see both processes sharing CPU cores, keeping the system responsive. This demonstrates how scheduling prevents one process from starving others.
 
 ### 4. File System
 
@@ -167,7 +204,7 @@ The file system is how the OS organizes and provides access to persistent data o
 - Every file has an owner (user) and group
 - Only the owner or root can change permissions
 - Groups allow multiple users to share access to files
-- Example: A file owned by `alice:developers` means user alice owns it, developers group has group permissions
+- Example: A file owned by `sharu:devops` means user sharu owns it, devops group has group permissions
 
 ## Hands-on Lab: OS Exploration
 
@@ -290,9 +327,4 @@ No cleanup needed - all commands were read-only.
 3. Use `cheatsheet.md` for command reference
 4. Move to **02-process-management** after completion
 
-## Additional Resources
-
-- Man pages: `man 7 man-pages`
-- Linux foundation: https://www.linuxfoundation.org/
-- Kernel docs: https://www.kernel.org/doc/
 
