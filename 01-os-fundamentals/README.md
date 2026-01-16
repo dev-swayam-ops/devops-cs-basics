@@ -280,28 +280,6 @@ hostname
 # ubuntu
 ```
 
-## Validation
-
-Verify your understanding:
-
-```bash
-# Can you get OS info?
-uname -a && echo "✓ OS info accessible"
-
-# Can you check memory?
-free -h && echo "✓ Memory check works"
-
-# Can you list processes?
-ps aux | wc -l && echo "✓ Processes visible"
-
-# Can you check disk?
-df -h && echo "✓ Disk info visible"
-```
-
-## Cleanup
-
-No cleanup needed - all commands were read-only.
-
 ## Common Mistakes
 
 1. **Confusing PID and PPID**: PID is process's ID, PPID is parent's ID
