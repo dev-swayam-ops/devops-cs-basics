@@ -41,6 +41,40 @@ The operating system separates execution into two distinct privilege levels to e
 - Examples: `open()`, `read()`, `write()`, `fork()`, `exit()` are all system calls
 - The context switch overhead is why minimizing system calls is important for performance
 
+#### Practical Examples: Mode Switching
+
+**Example 1: Pure User Mode (No Kernel Involved)**
+```c
+int a = 10, b = 20;
+int c = a + b;
+```
+- This arithmetic operation runs entirely in user mode
+- Only uses CPU registers and process memory
+- No kernel interaction needed
+- No mode switch occurs
+
+**Example 2: User Mode → Kernel Mode (System Call)**
+```c
+printf("Hello\n");  // Looks simple, but internally:
+write(1, "Hello\n", 6);  // This is a system call to kernel
+```
+- `printf()` internally calls `write()` system call
+- CPU switches from user mode → kernel mode → back to user mode
+- Kernel's terminal driver handles the actual output
+- User code cannot directly access terminal hardware
+
+**Example 3: Multiple System Calls (File I/O)**
+```c
+fd = open("data.txt", O_RDONLY);   // System call #1
+read(fd, buffer, 100);              // System call #2
+close(fd);                          // System call #3
+```
+- Each line triggers a user mode → kernel mode → user mode cycle
+- `open()`: Kernel checks permissions and initializes file descriptor
+- `read()`: Kernel controls disk I/O operations
+- `close()`: Kernel releases file resources
+- These context switches have measurable performance cost - why buffering reads/writes is important
+
 ### 2. Process Basics
 
 A process is the fundamental unit of execution in an operating system. Each process is an independent running instance of a program.
