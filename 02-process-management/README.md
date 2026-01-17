@@ -279,6 +279,8 @@ kill %1 %2 %3 2>/dev/null
 
 ## Additional Resources
 
+**In Linux, man stands for manual. It is a command used to open the official documentation/manual page for other commands, system calls, library functions, and configuration files**
+
 - Process signals: `man 7 signal`
 - Kill command: `man kill`
 - Process management: `man ps`, `man jobs`, `man fg`
