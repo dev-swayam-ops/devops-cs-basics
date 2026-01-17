@@ -180,6 +180,13 @@ Process control is how users and the shell manage running processes - starting, 
 - You can then use `bg` to resume in background or `fg` to resume in foreground
 - Useful for pausing long-running processes without killing them, then deciding what to do
 
+## External Commands vs Shell Builtins
+
+| Category                 | Creates a New Process? | Where it exists                                           | Why                                                         | Examples                                                                                                                                                                                                   |
+| ------------------------ | ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1) External Commands** |  Yes                  | Separate executable files like `/bin/ls`, `/usr/bin/grep` | Shell must `fork()` + `execve()` to run them                | `ls`, `cat`, `grep`, `awk`, `sed`, `find`, `ps`, `top`, `htop`, `curl`, `wget`, `ping`, `ssh`, `tar`, `zip`, `unzip`, `gcc`, `python`, `node`, `java`, `git`, `docker`, `systemctl`                        |
+| **2) Shell Builtins**    |  No                   | Implemented inside shell itself (`bash`, `zsh`)           | Must modify shell state (directory, variables, job control) | `cd`, `export`, `unset`, `exit`, `alias`, `unalias`, `history`, `jobs`, `fg`, `bg`, `set`, `shift`, `umask`, `ulimit`, `source` (or `.`), `read`, `trap`, `type`, `help`, `pwd` *(builtin in most shells)* |
+
 ## Hands-on Lab: Process Management
 
 ### Lab Overview
