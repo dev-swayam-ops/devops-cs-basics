@@ -235,24 +235,6 @@ sleep 500 &
 killall sleep
 ```
 
-## Validation
-
-Verify your understanding:
-
-```bash
-# Can you start background jobs?
-sleep 100 & jobs -l
-
-# Can you send signals?
-kill -0 $$ && echo "✓ Signal sending works"
-
-# Can you list processes?
-ps aux | grep bash && echo "✓ Process listing works"
-
-# Can you view process tree?
-pstree -p $$ && echo "✓ Tree viewing works"
-```
-
 ## Cleanup
 
 ```bash
