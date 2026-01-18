@@ -20,284 +20,91 @@
 
 ### 1. Common System Calls
 
-These are the fundamental syscalls for process and file operations. Understanding them is crucial for systems programming.
+**fork()**: Creates child process (copy of parent). Returns 0 to child, child's PID to parent. Used by shell to run commands. Child has separate memory but shares open files.
 
-**Process Control System Calls**
+**exec()**: Replaces current process with new program. PID stays same, code/memory change. Used with fork(): `fork() → exec()` pattern. No return on success (only on error).
 
-**fork()**
-- Creates new child process as exact copy of parent
-- Returns 0 to child, child's PID to parent, -1 on error
-- Both parent and child continue executing from fork() point
-- Child has separate memory space - changes in child don't affect parent
-- File descriptors are duplicated - child shares open files with parent
-- Most common way to create new processes in Unix
-- Used by shell when you type a command
+**exit(status)**: Process terminates, returns status (0-255) to parent. Resources freed. Parent retrieves status with `wait()`.
 
-**exec() Family (execve, execvp, execl, etc.)**
-- Replaces current process with new program
-- Does NOT create new process - transforms existing one
-- PID remains same, but code, memory, registers all change
-- Return value: only returns on error (-1)
-- Often used with fork(): parent forks child, child execs new program
-- Cannot return to old code after exec - it's gone
-- Kernel preserves file descriptors and signal handlers (by default)
+**wait() / waitpid()**: Parent blocks until child exits. Retrieves exit code. Essential to prevent zombies. `waitpid()` for specific child.
 
-**exit(int status)**
-- Process terminates
-- Returns exit code to parent (0-255, 0 = success)
-- All resources freed: memory, file descriptors, etc.
-- Parent can retrieve exit code with wait()
-- If parent exits first without waiting, init adopts child and reaps it
-- exit() flushes and closes streams
-- Called by `return` in main() function
+**File I/O**: `open()`, `read()`, `write()`, `close()`. All take/return file descriptors (0=stdin, 1=stdout, 2=stderr).
 
-**wait() and waitpid()**
-- Parent blocks waiting for child to terminate
-- Returns child's PID and exit status
-- Allows parent to learn why child exited (normal, signal, core dump)
-- If multiple children running, parent can wait for specific one (waitpid) or any (wait)
-- Essential for zombie prevention
-- Parent continues executing after child terminates
+**DevOps Relevance**: Understand fork/exec pattern. Optimize systems by reducing syscall overhead in hot paths. Monitor open files with `lsof`.
 
-**File Operations System Calls**
+### 2. Signal Types
 
-**open(const char *path, int flags)**
-- Opens file or creates it
-- Returns file descriptor (small integer identifying open file)
-- Flags specify: read/write, create if missing, truncate, append, etc.
-- Same process can have multiple file descriptors to same file
-- File descriptors 0, 1, 2 are stdin, stdout, stderr (standard)
-- Limited per process: typically 1024 file descriptors
+**Termination**:
+- **SIGTERM (15)**: Graceful shutdown (default `kill`). Can be caught. Application can cleanup.
+- **SIGKILL (9)**: Force kill. Uncatchable. Use only as last resort (dirty exit).
+- **SIGINT (2)**: Ctrl+C. Usually caught for cleanup.
 
-**read(int fd, void *buf, size_t count)**
-- Reads up to `count` bytes from file descriptor into buffer
-- Returns number of bytes actually read (may be less than requested)
-- If at end of file, returns 0
-- On error, returns -1
-- Blocks until data available (unless non-blocking mode)
-- Updates file position - next read continues from where this left off
+**Process Control**:
+- **SIGSTOP (19)**: Pause (uncatchable). Resume with SIGCONT.
+- **SIGCONT (18)**: Resume stopped process.
 
-**write(int fd, const void *buf, size_t count)**
-- Writes `count` bytes from buffer to file descriptor
-- Returns number of bytes written (may be less than requested)
-- On error, returns -1
-- Blocks if output buffer full (unless non-blocking)
-- File position updated - next write continues from end
-- Important: might not write all bytes in single call
+**Daemon Signals**:
+- **SIGHUP (1)**: Hangup. Daemons trap this to reload config without restart.
+- **SIGCHLD (17)**: Child exited. Parent can trap to cleanup zombies.
 
-**close(int fd)**
-- Closes file descriptor
-- Flushes any pending writes
-- File descriptor becomes available for reuse
-- All open files automatically closed when process exits
-- Important to close to avoid resource leaks
-- Error on closing already-closed descriptor
+**User-Defined**:
+- **SIGUSR1, SIGUSR2**: Application-specific (e.g., reload config).
 
-### 2. Signal Types and Handling
+**DevOps Relevance**: `kill -15 PID` asks nicely. `kill -9 PID` forces. Daemons should handle SIGHUP for zero-downtime restarts.
 
-Signals are software interrupts that notify processes of events. Different signals have different meanings and can be handled differently.
+### 3. Signal Handling
 
-**Termination Signals**
+**Delivery Flow**: Signal generated → marked pending → delivered when process unblocks → handler runs (if installed) or default action taken.
 
-**SIGTERM (15)**
-- Termination signal - "please exit"
-- Default action: terminate process
-- Can be caught/handled by application
-- Allows graceful shutdown: close connections, save state
-- Standard way to stop processes
-- `kill` command sends SIGTERM by default
+**Signal Trapping in Bash**:
+```bash
+trap 'cleanup' SIGTERM        # Run cleanup() on SIGTERM
+trap 'echo reloading' SIGHUP  # Reload config on SIGHUP
+trap - SIGTERM               # Remove trap, restore default
+```
 
-**SIGKILL (9)**
-- Force kill - cannot be caught, blocked, or ignored
-- Immediate termination, no cleanup possible
-- Last resort when SIGTERM doesn't work
-- Process receives no chance to react
-- Resources may leak, connections abruptly closed
-- Dangerous if process was in middle of update
+**Default Actions**: Terminate, ignore, stop, continue, core dump.
 
-**SIGINT (2)**
-- Interrupt signal - sent by Ctrl+C
-- Default action: terminate
-- Can be caught to do cleanup before exit
-- Default works well for interactive programs
-- Shell uses it to stop foreground process
+**Best Practice**: Handler should set volatile flag, return. Main loop checks flag and takes action. Don't do heavy work in handler.
 
-**SIGQUIT (3)**
-- Quit signal - sent by Ctrl+\\
-- Like SIGINT but also dumps core (memory snapshot)
-- Useful for debugging
-- Default action: terminate with core dump
+**Blocking Signals**: Can block (delay delivery) but SIGKILL/SIGSTOP always get through.
 
-**Process Control Signals**
-
-**SIGSTOP (19)**
-- Pause process - cannot be caught
-- Not termination, just suspension
-- Process doesn't consume CPU but stays in memory
-- Sent by Ctrl+Z in interactive shell
-- Only SIGCONT can resume stopped process
-
-**SIGCONT (18)**
-- Continue - resumes stopped process
-- Only meaningful for stopped process
-- Allows: pause long operation, then resume
-- Used with job control in shells
-
-**Terminal-Related Signals**
-
-**SIGHUP (1)**
-- Hangup - sent when terminal closes
-- Default action: terminate
-- Used by daemons to reload configuration
-- When you SSH and connection drops, SIGHUP sent to all processes
-- Important for servers: trap it to reload config without restart
-
-**User-Defined Signals**
-
-**SIGUSR1 (10) and SIGUSR2 (12)**
-- No predefined meaning - application decides
-- Useful for inter-process communication
-- Example: daemon might reload config on SIGUSR1
-- Real-time signals (SIGRTMIN to SIGRTMAX) can queue multiple signals
-
-**Child Process Signals**
-
-**SIGCHLD (17)**
-- Sent to parent when child terminates
-- Default action: ignore
-- Parent can trap to know when child exits
-- Allows cleaning up zombie (calling wait())
-- If parent ignores, child automatically reaped
-
-### 3. Signal Delivery and Handling
-
-When a signal is sent to a process, the kernel must deliver it and the process can respond by running a signal handler.
-
-**Signal Delivery Flow**
-1. Some event occurs (timer expired, user presses Ctrl+C, etc.)
-2. Kernel sends signal to process
-3. Signal marked as pending for process
-4. At next opportunity, kernel delivers signal to process
-5. Process either: runs handler (if one installed) or default action
-6. Process resumes normal execution
-
-**Pending Signals**
-- Signal generated but not yet delivered
-- Process blocked on I/O: signal queued, delivered when unblocked
-- Multiple signals of same type: only one marked pending (not queued)
-- Real-time signals (SIGRTMIN+) do queue
-- Unhandled signal causes default action
-
-**Default Actions**
-- Terminate: process exits
-- Ignore: signal discarded, process continues
-- Stop: process pauses
-- Continue: process resumes
-- Core dump: process exits and writes memory dump
-
-**Signal Handlers**
-- Application-provided function called when signal arrives
-- Registered with `signal()` or `sigaction()` syscall
-- Handler runs in signal context (special context, not in process)
-- Process pauses where it was, handler executes, process resumes
-- After handler returns, process continues
-- Can modify process behavior (exit, continue, ignore)
-
-**Signal Trapping (Bash)**
-- `trap command SIGNAL` - sets up handler in bash script
-- Example: `trap 'rm /tmp/tempfile' EXIT` - cleanup before exit
-- Example: `trap 'echo Interrupted!' SIGINT` - handle Ctrl+C
-- Command executed when signal arrives
-- Common for: cleanup, graceful shutdown, reloading config
-
-**Blocking Signals**
-- `sigprocmask()` blocks specific signals
-- Blocked signals still sent but not delivered
-- Useful: protect critical section from being interrupted
-- Multiple signals can be blocked
-- Blocking SIGKILL/SIGSTOP has no effect (always delivered)
+**DevOps Action**: Scripts should trap EXIT/TERM for cleanup. Daemons should trap SIGHUP to reload config without restart.
 
 ### 4. Zombie Processes
 
-A zombie is a process that has exited but hasn't been cleaned up by its parent. Understanding zombies is important for process management.
+**What**: Process exited but parent hasn't called `wait()`. Kernel keeps small entry (exit code) in process table. PID held until parent reads it.
 
-**How Zombies Form**
-1. Child process finishes execution or dies
-2. Child calls exit() or receives fatal signal
-3. Child's memory and resources freed by kernel
-4. Small entry remains in process table containing:
-   - PID
-   - Exit code or signal that killed it
-   - Parent PID
-5. Parent can retrieve this info with wait()
-6. After parent reads it, entry removed
+**Detection**: `ps aux | grep Z` or `ps aux | grep defunct`. Shows `<defunct>` in output.
 
-**Zombie vs Terminated**
-- Terminated: process completely removed, PID can be reused
-- Zombie: process exited but entry lingers in process table
-- Zombie takes minimal resources (small kernel data structure)
-- But PID still held - if too many zombies, can't create new processes
+**Prevention**: Parent must call `wait()` or `waitpid()`. Or ignore SIGCHLD: `trap '' SIGCHLD`.
 
-**Why Zombies Exist**
-- Design: children should notify parent of exit
-- Parent may be doing other things, checks child status later
-- Prevents info loss: exit code held until parent reads it
-- If parent dies without reading, init (PID 1) adopts and reaps zombie
+**Accumulation Risk**: Parent dies → init adopts children and reaps them. But long-running parent with zombies = parent bug (not calling wait()).
 
-**Detecting Zombies**
-- `ps aux` shows process state - zombie has `<defunct>` in command
-- `ps` shows `Z` state for zombie
-- `cat /proc/[zombie_pid]/status` shows `State: Z`
+**DevOps Action**: Zombie processes harmless but indicate application bug. Parent should be calling `wait()` for its children. Check with `ps aux | grep Z`.
 
-**Preventing Zombies**
-- Parent must call wait() or waitpid()
-- Trap SIGCHLD signal and call wait() in handler
-- Or ignore SIGCHLD: `signal(SIGCHLD, SIG_IGN)` - automatic cleanup
-- Server programs: loop calling waitpid() non-blocking after each accept()
+### 5. Signal Safety
 
-**Handling Accumulation**
-- Parent dies: init adopts all children and reaps them
-- Zombie harmless but indicates parent bug
-- Parent not waiting for children - will eventually fail
-- Long-running parent with child zombies: parent probably broken
+**Problem**: Signal can interrupt process mid-function. If handler calls same function = corruption (e.g., malloc() interrupted by malloc()).
 
-### 5. Signal Safety and Async-Signal-Safe Functions
+**Safe Functions**: Limited set of syscalls/functions safe to call in signal handler. Read `man 7 signal-safety`.
 
-Not all functions are safe to call from signal handlers. Understanding which are safe is critical for robust signal handling.
+**Safe**: `write()`, `read()`, `exit()`, `kill()`, `signal()`, simple ops like `memcpy()`.
 
-**Why Signal Handler Safety Matters**
-- Signal can interrupt process at ANY point
-- Process might be in middle of function call
-- If signal handler calls same function, can corrupt internal state
-- Example: signal interrupts malloc(), handler calls malloc() → deadlock
-- Locks don't work - only one thread, same process
+**Unsafe**: `printf()`, `malloc()`, `free()`, `sleep()`, most library functions (they use locks).
 
-**Async-Signal-Safe Functions**
-- Functions that can safely be called from signal handler
-- Typically just system calls
-- Cannot call library functions (malloc, printf, etc.)
-- Safe functions listed in `man 7 signal-safety`
-- Examples: write, read, signal, exit, _Exit, kill, pause
+**Best Practice**: Handler does minimal work—just set volatile global flag. Return. Main program checks flag and takes action.
 
-**Common Safe Functions**
-- I/O: `write()` (stdout, files, sockets)
-- Process: `exit()`, `_exit()`, `getpid()`
-- Signals: `signal()`, `sigaction()`
-- Simple: `memcpy()`, string ops
+**Example**:
+```bash
+trap 'SIGTERM_RECEIVED=1' SIGTERM
+while true; do
+  [ "$SIGTERM_RECEIVED" = 1 ] && break  # Check flag
+  # do work
+done
+```
 
-**Unsafe Functions (Never Call in Handler)**
-- `printf()` - uses locks, buffering
-- `malloc()`, `free()` - uses locks
-- `sleep()` - uses signals internally
-- Most library functions - not designed for signal context
-- Anything involving locks
-
-**Best Practice**
-- Signal handler should do minimal work
-- Set a volatile global flag
-- Return from handler
-- Main program checks flag and takes action
-- Example: catch SIGTERM, set flag, main loop checks flag and exits gracefully
+**DevOps Relevance**: Write safe shutdown scripts. Don't do complex work in signal handlers.
 
 ## Hands-on Lab: Signals and Process Control
 

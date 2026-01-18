@@ -21,286 +21,97 @@
 
 ### 1. Kernel Architecture
 
-The kernel is the core of the operating system that manages all hardware and system resources. It operates in a privileged mode separate from user applications.
+**User Space**: Applications (web servers, containers, tools). Cannot directly access hardware. Syscalls are only interface to kernel.
 
-**User Space**
-- Where regular applications run (web browsers, editors, servers)
-- Cannot directly access hardware or system resources
-- Restricted environment - if one app crashes, doesn't crash system
-- Has access to system through system calls only
-- Each process gets isolated address space
-- Libraries (libc) in user space provide interface to system calls
-- Shells (bash, sh) are user space programs that invoke other programs
+**Kernel Space**: Privileged mode with full hardware access. Single kernel per system, shared by all processes.
 
-**Kernel Space**
-- Runs in privileged "kernel mode" with full hardware access
-- Only kernel code runs here, not user applications
-- Has direct access to all hardware, memory, I/O
-- One kernel per system (shared by all processes)
-- Completely isolated from user space
-- Bug in kernel can crash entire system
+**Mode Switch**: User → Kernel expensive (~100+ CPU cycles). Understand this when optimizing syscall-heavy workloads.
 
-**System Call Interface**
-- The boundary between user and kernel space
-- Controlled gateway - only way user applications can request kernel services
-- When user application calls `open()`, library looks up system call and triggers transition
-- Mode switch from user to kernel mode is expensive (100+ CPU cycles)
-- Kernel performs requested operation then switches back to user mode
+**Key Subsystems DevOps Cares About**:
+- **Process Management** - scheduling, signals
+- **Memory Management** - paging, swaps
+- **Networking** - TCP/IP, firewall (iptables)
+- **Device Drivers** - hardware abstraction
 
-**Major Kernel Subsystems**
-
-**Process Management**
-- Tracks all running processes
-- Scheduling: decides which process gets CPU time
-- Signals: delivers asynchronous notifications
-- Synchronization: coordinates access to shared resources
-
-**Memory Management**
-- Virtual memory system
-- Paging: swapping pages between RAM and disk
-- Allocation: malloc/free eventually request from kernel
-- Protection: prevents processes from accessing each other's memory
-
-**File Systems**
-- Manages storage organization
-- File operations: open, read, write, close
-- Directory hierarchy
-- Permissions and access control
-- Buffer cache for I/O optimization
-
-**Device Drivers**
-- Interface between hardware and software
-- Talks to hardware directly
-- Handles interrupts from devices
-- Loaded as modules or compiled in
-
-**Networking**
-- Network protocol implementation (TCP/IP, UDP)
-- Socket API for applications
-- Packet routing and forwarding
-- Firewall/iptables
-
-**Hardware Interface**
-- Lowest level kernel code
-- CPU-specific assembly
-- Interrupt handling
-- Context switching
+**DevOps Relevance**: Know where performance bottlenecks hide. High syscall rates = performance drag.
 
 ### 2. System Calls (Syscalls)
 
-System calls are the mechanism through which user programs request kernel services. Every interaction with hardware goes through a system call.
+**What**: User programs request kernel services through syscalls. Transition from user mode → kernel mode → user mode.
 
-**What Are System Calls**
-- Interface that user programs use to request kernel services
-- Transition from user mode to kernel mode
-- Kernel performs privileged operation then returns result to user
-- Not normal function calls - involves mode switch and overhead
+**Cost**: ~100-500 CPU cycles per syscall (mode switch, context, TLB flush, cache misses).
 
-**How System Calls Work**
-1. User application calls library function (e.g., `open()`)
-2. Library function loads syscall number into CPU register
-3. Library triggers "syscall" instruction
-4. CPU switches to kernel mode
-5. Kernel looks up syscall handler based on number
-6. Kernel executes the syscall handler
-7. Kernel stores result in register
-8. Kernel triggers "return from syscall" instruction
-9. CPU switches back to user mode
-10. Library returns result to application
+**Common Syscalls**:
+- **Process**: `fork()`, `exec()`, `exit()`, `wait()`
+- **File**: `open()`, `read()`, `write()`, `close()`
+- **Memory**: `mmap()`, `brk()`
+- **Signals**: `signal()`, `kill()`
 
-**Common System Calls**
-- **Process**: `fork()` (create), `exec()` (replace), `exit()` (terminate), `wait()` (wait for child)
-- **File**: `open()`, `read()`, `write()`, `close()`, `stat()` (get info)
-- **Memory**: `brk()`, `mmap()` (allocate), `munmap()` (free)
-- **Signal**: `signal()`, `sigaction()` (set handler), `kill()` (send signal)
-- **IPC**: `pipe()`, `socket()`, `semget()` (communication)
+**Optimization**: Reduce syscalls in hot paths. Batch I/O operations. Use async I/O to avoid blocking syscalls.
 
-**Why System Calls Are Expensive**
-- Mode switch from user to kernel: ~100 CPU cycles
-- Context switch: save/restore CPU state
-- TLB flush: page table translations become invalid
-- Cache misses: working set changes
-- Interrupt disabled: prevents responsive to external events
-- Every system call has minimum 100-500 cycle overhead
-- Why: reduce system calls in performance-critical code
+**Example**: Reading 1KB file with 1000 reads = 1000 syscalls (expensive). One `read()` for full file = 1 syscall.
 
-**Syscalls Go Through libc**
-- User programs don't directly make syscalls (usually)
-- libc library provides C functions that are user-friendly wrappers
-- `read()` in libc translates to syscall and handles errors
-- errno variable holds error code if syscall fails
-- Some libraries add buffering on top (e.g., stdio buffering around read/write syscalls)
-
-**Virtual vs Real Syscalls**
-- Some calls like `getpid()` are handled by kernel without switching modes (vdso - virtual syscall)
-- Faster than real syscalls but limited functionality
-- Kernel provides pointer to data that doesn't change - process just reads it
+**DevOps**: Monitor with `strace -c` to find syscall bottlenecks in applications.
 
 ### 3. Process States and Context Switching
 
-Processes constantly transition between different states as they execute. The scheduler manages these transitions to fairly allocate CPU time.
+**Key States**:
+- **Ready**: Waiting for CPU (thousands can be ready)
+- **Running**: Executing on CPU (one per core)
+- **Blocked**: Waiting for I/O/event (doesn't consume CPU)
+- **Zombie**: Exited but parent hasn't called `wait()` (memory freed, small process table entry remains)
 
-**New (Created)**
-- Process just created with `fork()` or `execve()`
-- Resources allocated
-- Quickly transitions to Ready
+**Context Switch Overhead**: ~1000-10000 CPU cycles. Saves/restores registers, flushes TLB, invalidates cache.
 
-**Ready (Runnable)**
-- Process is ready to run, waiting for CPU
-- In ready queue maintained by scheduler
-- Waiting for scheduler to select it
-- Could be ready immediately but CPU busy with another process
-- Thousands of processes can be ready simultaneously
+**Problem**: Too many processes = thrashing (system spends time switching, not working).
 
-**Running (Executing)**
-- Process currently executing on CPU
-- Only one process per CPU core can be running at a time
-- Runs for time slice (quantum) - typically 10-100ms
-- After time slice expires, scheduler preempts it (forces switch)
-- Can voluntarily yield (e.g., sleep) or block on I/O
+**DevOps Metrics to Monitor**:
+- `ps aux | wc -l` - too many processes?
+- `vmstat` - context switches per second (high = thrashing)
+- Check zombie processes: `ps aux | grep Z` (indicates parent bug)
 
-**Blocked (Waiting)**
-- Process waiting for event (I/O completion, signal, lock)
-- Not in ready queue - scheduler ignores it
-- Doesn't consume CPU time while blocked
-- When event occurs (file data arrives, signal delivered), moved to Ready
-- Most processes spend most time blocked (waiting for I/O)
+**Rule of Thumb**: Keep running processes ≤ 2× CPU cores for good performance.
 
-**Zombie (Reaped)**
-- Process has exited but parent hasn't called `wait()` to read exit code
-- No resources consumed (memory freed)
-- Small entry remains in process table holding exit code
-- If parent dies before reading exit code, init adopts zombie and reaps it
-- Indicates parent process bug
+### 4. Interrupts and IRQ Handling
 
-**Terminated (Exited)**
-- Process completely removed from system
-- All resources freed
-- PID can be reused
-- No trace remains in process table
+**Hardware Interrupts**: External events (keyboard press, disk I/O complete, network packet). CPU pauses process, runs interrupt handler, resumes.
 
-**State Transitions**
-- New → Ready (immediately)
-- Ready → Running (scheduler selects)
-- Running → Ready (preempted by scheduler after time slice)
-- Running → Blocked (process waits for I/O or event)
-- Blocked → Ready (event occurs, returns to queue)
-- Running → Zombie (calls `exit()`, parent hasn't waited)
-- Zombie → Terminated (parent calls `wait()`)
+**Software Interrupts**: Triggered by code (syscalls, divide-by-zero, page fault, exceptions).
 
-**Context Switch**
-- When scheduler switches from one process to another
-- Save all CPU registers and state of current process
-- Restore all CPU registers and state of new process
-- TLB (translation lookaside buffer) flushed
-- CPU caches become invalid (new process likely to miss cache)
-- 1000-10000 CPU cycles overhead
-- Too many context switches = thrashing (system spends time switching, not working)
+**Interrupt Handler**: Kernel code that runs immediately. Must be **very fast** (no blocking, no I/O). Often just acknowledges interrupt, schedules deferred work.
 
-### 4. Interrupts
+**Interrupt Overhead**: Hundreds-thousands per second on busy systems. Each causes context save/restore.
 
-Interrupts are asynchronous events that require immediate kernel attention. They're essential for I/O and multitasking.
+**Problem**: Interrupt storms (broken device generating thousands/sec) = system unresponsive.
 
-**Hardware Interrupts**
-- External events: keyboard key pressed, disk data ready, network packet arrived
-- Triggered by hardware, not by any software
-- CPU pauses current process, jumps to interrupt handler
-- Handler is kernel code specific to interrupt
-- After handler finishes, CPU resumes process where it left off
-- Examples: timer interrupt (scheduling), keyboard interrupt, disk interrupt
+**Monitor**: `cat /proc/interrupts` - check for abnormal IRQ rates. `watch -n 1 'cat /proc/interrupts'` - watch for spikes.
 
-**Software Interrupts**
-- Triggered by software: system calls, divide by zero, invalid memory access
-- Same mechanism as hardware interrupts
-- Examples: `int 0x80` (legacy syscall instruction), CPU exceptions
-- Synchronous - directly caused by executing code
+**DevOps Action**: High interrupt count on specific IRQ? Investigate driver or hardware issue.
 
-**Exception Handling**
-- Segmentation fault: tried to access invalid memory
-- Division by zero: attempted `x / 0`
-- Illegal instruction: CPU doesn't recognize instruction
-- Page fault: virtual address not mapped to physical memory
-- Kernel exception handler terminates process (usually)
+### 5. Kernel Modules and Parameters
 
-**Interrupt Handler (ISR - Interrupt Service Routine)**
-- Kernel code that runs when interrupt occurs
-- Must be very fast - system unresponsive while running
-- Often just acknowledges interrupt and schedules deferred work
-- Cannot do blocking operations or lengthy computations
-- Runs in special interrupt context (not inside any process)
+**Kernel Modules**: Runtime-loadable kernel extensions. Drivers, filesystems, protocol handlers. Stored in `/lib/modules/$(uname -r)/`.
 
-**Context Switch During Interrupt**
-- Not technically a context switch (not switching between processes)
-- Interrupting process state saved
-- Interrupt handler runs
-- Interrupting process state restored
-- If scheduler decides to switch processes, happens after handler returns
+**Commands**:
+- `modprobe driver_name` - load + handle dependencies
+- `rmmod driver_name` - unload (fails if in use)
+- `lsmod` - list loaded modules
+- `dmesg` - check load errors
 
-**Interrupt Priority**
-- Some interrupts more important than others
-- Timer interrupt (scheduling) very high priority
-- Device interrupts vary
-- Interrupts can be masked (disabled) temporarily
-- Nested interrupts: interrupt handler can be interrupted by higher priority
+**Common Modules**: Network (`e1000`, `ixgbe`), storage (`ahci`), filesystems (`ext4`, `xfs`).
 
-**Overhead of Interrupts**
-- Each interrupt causes context save/restore
-- Frequency: hundreds or thousands per second on busy system
-- Too many interrupts = system busy handling them, no time for application work
-- Interrupt storms: broken device generates thousands of interrupts/second (hangs system)
+**Kernel Parameters**: Tunable settings in `/proc/sys/` or `/etc/sysctl.conf`.
 
-### 5. Kernel Modules
+**Important Parameters for DevOps**:
+- `kernel.shmmax` - max shared memory (databases)
+- `net.core.somaxconn` - backlog for connections
+- `net.ipv4.tcp_max_syn_backlog` - SYN flood protection
+- `fs.file-max` - max open files per system
+- `kernel.pid_max` - max process IDs
 
-Kernel modules allow extending kernel functionality without recompiling the entire kernel. They provide a way to add device drivers and features dynamically.
+**Check**: `sysctl -a`. **Change**: `sysctl -w kernel.param=value`. **Persist**: Edit `/etc/sysctl.conf` + `sysctl -p`.
 
-**What Are Kernel Modules**
-- Kernel extensions loaded at runtime
-- Object files linked into running kernel
-- Can be loaded and unloaded on the fly
-- Run in kernel space with full hardware access
-- Examples: device drivers, filesystem implementations, protocol handlers
-
-**Advantages**
-- Faster kernel development: modify module, reload, test (no reboot)
-- Flexible: load only drivers needed for hardware
-- Smaller kernel in memory: optional features loaded as needed
-- Bug isolation: buggy module can often be unloaded without reboot
-
-**Disadvantages**
-- Buggy module can crash kernel
-- Security: malicious module has full system access
-- Complexity: module must follow kernel interfaces correctly
-- Dependencies: modules can depend on other modules
-
-**Module Naming Convention**
-- Stored in `/lib/modules/$(uname -r)/kernel/`
-- Organized by category: drivers/usb/, drivers/net/, fs/ (filesystems), etc.
-- File extension: `.ko` (kernel object)
-- Named after functionality: `e1000.ko` for Intel network driver
-
-**Loading and Unloading**
-- `modprobe driver_name` - loads module and dependencies
-- `insmod path/to/module.ko` - low-level load (must handle dependencies manually)
-- `rmmod driver_name` - unloads module (fails if in use)
-- `lsmod` - lists currently loaded modules
-- `modinfo driver_name` - shows module information
-
-**Module Parameters**
-- Modules can accept parameters at load time
-- Example: `modprobe e1000 debug=1` enables debugging
-- Parameters shown in sysfs: `/sys/module/driver_name/parameters/`
-
-**Common Modules**
-- Network drivers: `e1000`, `ixgbe`, `r8169`
-- Storage drivers: `ahci`, `usb_storage`
-- Filesystem drivers: `ext4`, `xfs`, `nfs`
-- System modules: `apparmor`, `xt_conntrack` (netfilter)
-
-**Device Files**
-- Modules create device files: `/dev/something`
-- Example: `e1000` driver creates network interface `eth0`
-- Applications use device files to interact with hardware
-- Device files managed by udev (dynamic device manager)
+**DevOps**: Database tuning often requires adjusting shmmax, ulimits. Web servers need tcp_max_syn_backlog tuning.
 
 ## Hands-on Lab: Kernel Exploration
 
