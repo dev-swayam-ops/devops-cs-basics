@@ -1,5 +1,5 @@
 # DevOps CS Basics - Complete Learning Curriculum
-
+![CS](/CS_1A.png)
 A **complete, production-ready learning curriculum** designed to teach computer science fundamentals essential for DevOps engineers, system administrators, and infrastructure engineers.
 
 ## ✨ What This Repository Contains
