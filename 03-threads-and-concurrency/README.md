@@ -247,31 +247,6 @@ ls -la $COUNTER_FILE.lock 2>/dev/null
 rm -f $COUNTER_FILE $COUNTER_FILE.lock /tmp/race.sh
 ```
 
-## Validation
-
-Verify your understanding:
-
-```bash
-# Understand race conditions?
-echo "✓ Race condition concept understood"
-
-# Can use file locks?
-flock -x /tmp/test.lock echo "locked" && echo "✓ Locking works"
-
-# Understand thread states?
-ps -eLf | head && echo "✓ Thread viewing works"
-
-# Know deadlock prevention?
-echo "✓ Lock ordering concept understood"
-```
-
-## Cleanup
-
-```bash
-killall bash 2>/dev/null
-rm -f /tmp/counter.* /tmp/race.sh /tmp/test.lock
-```
-
 ## Common Mistakes
 
 1. **Forgetting to lock**: Shared data always needs synchronization
@@ -301,5 +276,4 @@ rm -f /tmp/counter.* /tmp/race.sh /tmp/test.lock
 
 - POSIX threads: `man pthreads`
 - File locking: `man flock`
-- Concurrency: https://en.wikipedia.org/wiki/Concurrency_(computer_science)
 
